@@ -412,7 +412,13 @@ update_from_github() {
         fi
     fi
     cd ${APP_DIR}
-    npm install
+    if [ -f package-lock.json ]; then
+        echo "Detected package-lock.json → running npm ci"
+        npm ci || npm install
+    else
+        echo "Running npm install"
+        npm install
+    fi
 
     # Ensure scripts are executable
     if [ -f "${PROJECT_ROOT}/menu.sh" ]; then
@@ -434,7 +440,7 @@ update_from_github() {
         fi
     fi
     
-    echo -e "${GREEN}✓ Update complete!${NC}"
+    echo -e "${GREEN}✓ Update complete (git pull/reset + npm install + restart)!${NC}"
 }
 
 restart_services() {
