@@ -995,81 +995,44 @@ uninstall_all() {
     rm -f /etc/nginx/sites-enabled/gpt-actions
     
     systemctl restart nginx
-    
+
     echo -e "${GREEN}✓ Uninstalled!${NC}"
 }
 
-# Main loop
-while true; do
-    show_menu
-    read -r choice
-    
-    case $choice in
-        1) install_native ;;
-        2) install_docker ;;
-        3) update_from_github ; SKIP_PAUSE=1 ;;
-        4) restart_services ;;
-        5) show_logs ;;
-        6) regenerate_bearer_token ;;
-        7) check_domain_verification ;;
-        8) manual_bearer_token ;;
-        9) setup_letsencrypt ;;
-        10) setup_custom_ssl ;;
-        11) setup_custom_ssl ;;
-        12) setup_letsencrypt ;;
-        13) change_s3_endpoint ;;
-        14) change_s3_access_key ;;
-        15) change_s3_secret_key ;;
-        16) change_s3_region ;;
-        17) change_s3_bucket ;;
-        18) test_s3_connection ;;
-        33) test_s3_list_objects ;;
-        19) change_supabase_key ;;
-        29) change_supabase_url ;;
-        30) test_supabase_connection ;;
-        31) change_supabase_bucket ;;
-        32) test_supabase_storage ;;
-        20) generate_openapi_supabase ;;
-        21) generate_openapi_s3 ;;
-        22) generate_openapi_full ;;
-        23) docker_start ;;
-        24) docker_stop ;;
-        25) docker_rebuild ;;
-        26) test_all_endpoints ;;
-        27) backup_all ;;
-        28) uninstall_all ;;
-        34) overwrite_ssl ;;
-        35) overwrite_ssl_letsencrypt ;;
-        36) test_create_file_logic ;;
-        # ...existing code...
-        # Fungsi: Test buat file ke S3
-        ## Fungsi: Test buat file ke S3
-       test_create_file_logic() {
-        echo -e "${CYAN}[TEST BUAT FILE KE S3]${NC}"
+overwrite_ssl() {
+    setup_custom_ssl
+}
+
+overwrite_ssl_letsencrypt() {
+    setup_letsencrypt
+}
+
+test_create_file_logic() {
+    echo -e "${CYAN}[TEST BUAT FILE KE S3]${NC}"
     cd "${APP_DIR}" || return 1
 
     # Install SDK kalau belum ada
-        if [ ! -d "node_modules/@aws-sdk/client-s3" ]; then
-            echo -e "${YELLOW}Menginstall @aws-sdk/client-s3 ...${NC}"
+    if [ ! -d "node_modules/@aws-sdk/client-s3" ]; then
+        echo -e "${YELLOW}Menginstall @aws-sdk/client-s3 ...${NC}"
         npm i -s @aws-sdk/client-s3 >/dev/null 2>&1 || {
-                echo -e "${RED}Gagal install @aws-sdk/client-s3${NC}"
+            echo -e "${RED}Gagal install @aws-sdk/client-s3${NC}"
             return 1
         }
     fi
 
     echo -n "Masukkan nama file (contoh: test-gpt.txt): "
     read -r FILE_NAME
-        [[ -z "$FILE_NAME" ]] && {
-            echo -e "${RED}✗ Nama file tidak boleh kosong!${NC}"
+    [[ -z "$FILE_NAME" ]] && {
+        echo -e "${RED}✗ Nama file tidak boleh kosong!${NC}"
         return 1
     }
 
-        [[ -z "$S3_BUCKET" ]] && {
-            echo -e "${RED}✗ Variabel S3_BUCKET belum di-set di .env!${NC}"
+    [[ -z "$S3_BUCKET" ]] && {
+        echo -e "${RED}✗ Variabel S3_BUCKET belum di-set di .env!${NC}"
         return 1
     }
 
-        echo -e "${YELLOW}Mengupload file → s3://$S3_BUCKET/$FILE_NAME${NC}"
+    echo -e "${YELLOW}Mengupload file → s3://$S3_BUCKET/$FILE_NAME${NC}"
 
     # <<< VERSI FINAL YANG BENAR 100% >>>
     node <<'NODEJS' "$FILE_NAME"
@@ -1125,11 +1088,56 @@ const params = {
 NODEJS
     # <<< SELESAI >>>
 
-        if [[ $? -eq 0 ]]; then
-            echo -e "${GREEN}✓ Test upload ke S3 berhasil!${NC}"
-        else
-            echo -e "${RED}✗ Test upload gagal! (lihat error di atas)${NC}"
+    if [[ $? -eq 0 ]]; then
+        echo -e "${GREEN}✓ Test upload ke S3 berhasil!${NC}"
+    else
+        echo -e "${RED}✗ Test upload gagal! (lihat error di atas)${NC}"
     fi
 
     read -p "Tekan Enter untuk melanjutkan..."
 }
+
+# Main loop
+while true; do
+    show_menu
+    read -r choice
+    
+    case $choice in
+        1) install_native ;;
+        2) install_docker ;;
+        3) update_from_github ; SKIP_PAUSE=1 ;;
+        4) restart_services ;;
+        5) show_logs ;;
+        6) regenerate_bearer_token ;;
+        7) check_domain_verification ;;
+        8) manual_bearer_token ;;
+        9) setup_letsencrypt ;;
+        10) setup_custom_ssl ;;
+        11) setup_custom_ssl ;;
+        12) setup_letsencrypt ;;
+        13) change_s3_endpoint ;;
+        14) change_s3_access_key ;;
+        15) change_s3_secret_key ;;
+        16) change_s3_region ;;
+        17) change_s3_bucket ;;
+        18) test_s3_connection ;;
+        33) test_s3_list_objects ;;
+        19) change_supabase_key ;;
+        29) change_supabase_url ;;
+        30) test_supabase_connection ;;
+        31) change_supabase_bucket ;;
+        32) test_supabase_storage ;;
+        20) generate_openapi_supabase ;;
+        21) generate_openapi_s3 ;;
+        22) generate_openapi_full ;;
+        23) docker_start ;;
+        24) docker_stop ;;
+        25) docker_rebuild ;;
+        26) test_all_endpoints ;;
+        27) backup_all ;;
+        28) uninstall_all ;;
+        34) overwrite_ssl ;;
+        35) overwrite_ssl_letsencrypt ;;
+        36) test_create_file_logic ;;
+        esac
+    done
