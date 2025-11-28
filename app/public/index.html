@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Custom Actions Server</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: #0e1117;
+      color: #f0f3f7;
+      padding: 40px;
+      line-height: 1.5;
+    }
+    code {
+      background: #1b2330;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+    a {
+      color: #4ea1ff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    footer {
+      margin-top: 40px;
+      font-size: 12px;
+      opacity: .6;
+    }
+    .hello-super {
+      display: flex;
+      justify-content: center;
+      gap: 0.5em;
+      margin-bottom: 40px;
+      min-height: 80px;
+      perspective: 600px;
+    }
+    .hello-char-super {
+      font-size: 4rem;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 0.1em;
+      opacity: 0;
+      text-shadow:
+        0 0 8px #4ea1ff,
+        0 0 24px #4ea1ff,
+        0 0 40px #00eaff,
+        0 0 80px #00eaff;
+      filter: drop-shadow(0 0 12px #4ea1ff);
+      transform: scale(0.7) rotateY(-60deg);
+      animation: neonBounce 1s cubic-bezier(.68,-0.55,.27,1.55) forwards;
+    }
+    @keyframes neonBounce {
+      0% { opacity: 0; transform: scale(0.7) rotateY(-60deg); }
+      40% { opacity: 1; transform: scale(1.2) rotateY(20deg); }
+      60% { transform: scale(0.95) rotateY(-10deg); }
+      80% { transform: scale(1.05) rotateY(0deg); }
+      100% { opacity: 1; transform: scale(1) rotateY(0deg); }
+    }
+    #server-info {
+      opacity: 0;
+      transform: translateY(40px) scale(0.95);
+      transition: opacity 1s, transform 1s;
+    }
+    #server-info.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      box-shadow: 0 8px 32px #4ea1ff33;
+      border-radius: 12px;
+      background: linear-gradient(90deg,#0e1117 80%,#1b2330 100%);
+      padding: 32px 24px 24px 24px;
+    }
+    #server-info {
+      opacity: 0;
+      transition: opacity 0.7s;
+    }
+  </style>
+</head>
+<body>
+  <div class="hello-super" id="helloSuper"></div>
+  <div id="server-info">
+    <h1>Custom Actions Server</h1>
+    <p>Domain verification file: <code>/.well-known/openai.json</code></p>
+    <p>OpenAPI spec: <a href="/actions.json">/actions.json</a></p>
+    <p>API base: <code>/api/...</code> (Bearer token required)</p>
+    <footer>Generated automatically at install time.</footer>
+    <section id="project-doc" style="margin-top:48px;padding:32px 24px 24px 24px;background:#10131a;border-radius:12px;box-shadow:0 4px 24px #4ea1ff22;max-width:600px;margin-left:auto;margin-right:auto;">
+      <h2 style="color:#4ea1ff;margin-bottom:12px;">📄 Project Documentation</h2>
+      <ul style="font-size:1.08em;line-height:1.7;">
+        <li><b>Project Name:</b> Custom Actions Server</li>
+        <li><b>Purpose:</b> Secure API server for OpenAI Custom Actions, S3, and Supabase integration.</li>
+        <li><b>Features:</b> Bearer Token authentication, domain verification, SSL management, S3 & Supabase file operations, auto-generated OpenAPI spec.</li>
+        <li><b>Endpoints:</b> <code>/api/...</code> (protected), <code>/actions.json</code> (OpenAPI), <code>/.well-known/openai.json</code> (verification)</li>
+        <li><b>Install/Deploy:</b> Native (PM2+Nginx) or Docker Compose. Use <code>menu.sh</code> for management.</li>
+        <li><b>SSL:</b> Supports Let's Encrypt and custom certificates.</li>
+        <li><b>Location:</b> <code>/opt/gpt</code> (server), <code>app/public</code> (web root)</li>
+        <li><b>Contact:</b> Admin via domain page for support.</li>
+      </ul>
+    </section>
+    <section id="endpoint-status" style="margin-top:32px;padding:24px 18px 18px 18px;background:#0e172a;border-radius:12px;box-shadow:0 2px 16px #4ea1ff22;max-width:600px;margin-left:auto;margin-right:auto;">
+      <h2 style="color:#4ea1ff;margin-bottom:10px;">🔄 Endpoint Status (Realtime)</h2>
+      <ul id="status-list" style="font-size:1.08em;line-height:1.7;list-style:none;padding-left:0;"></ul>
+    </section>
+  </div>
+  <script>
+    const helloText = "HELLO";
+    const superContainer = document.getElementById("helloSuper");
+    const info = document.getElementById("server-info");
+
+    // Create span for each character with super effect
+    helloText.split("").forEach((char, i) => {
+      const span = document.createElement("span");
+      span.textContent = char;
+      span.className = "hello-char-super";
+      span.style.animationDelay = (i * 0.33) + "s";
+      superContainer.appendChild(span);
+    });
+
+    // Show info after animation with smooth effect
+    setTimeout(() => {
+      info.classList.add('visible');
+    }, helloText.length * 330 + 1500);
+    // Realtime endpoint status checker
+    const endpoints = [
+      { name: "Health", url: "/health" },
+      { name: "Verification", url: "/.well-known/openai.json" },
+      { name: "OpenAPI Spec", url: "/actions.json" },
+      { name: "API Base", url: "/api/health" },
+    ];
+    const statusList = document.getElementById("status-list");
+    function checkEndpoints() {
+      statusList.innerHTML = "";
+      endpoints.forEach(ep => {
+        const li = document.createElement("li");
+        li.textContent = `Checking ${ep.name}...`;
+        statusList.appendChild(li);
+        fetch(ep.url, { method: "GET" })
+          .then(res => {
+            if (res.ok) {
+              li.innerHTML = `<span style='color:#22c55e;font-weight:bold;'>✔</span> <b>${ep.name}</b> <code>${ep.url}</code> <span style='color:#64748b;'>(HTTP ${res.status})</span>`;
+            } else {
+              li.innerHTML = `<span style='color:#f43f5e;font-weight:bold;'>✗</span> <b>${ep.name}</b> <code>${ep.url}</code> <span style='color:#64748b;'>(HTTP ${res.status})</span>`;
+            }
+          })
+          .catch(() => {
+            li.innerHTML = `<span style='color:#f43f5e;font-weight:bold;'>✗</span> <b>${ep.name}</b> <code>${ep.url}</code> <span style='color:#64748b;'>(unreachable)</span>`;
+          });
+      });
+    }
+    checkEndpoints();
+    setInterval(checkEndpoints, 10000); // update every 10s
+  </script>
+</body>
+</html>
