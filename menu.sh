@@ -146,40 +146,40 @@ show_menu() {
     echo "10) Aktifkan Custom SSL → Paste fullchain.pem + privkey.pem"
     echo "11) Ganti Custom SSL"
     echo "12) Kembali ke Let's Encrypt"
-    echo "34) Overwrite SSL (fullchain.pem & privkey.pem)"
-    echo "35) Overwrite SSL pakai Let's Encrypt (certbot)"
+    echo "13) Overwrite SSL (fullchain.pem & privkey.pem)"
+    echo "14) Overwrite SSL pakai Let's Encrypt (certbot)"
     echo ""
     echo -e "${BLUE}[ S3 STORAGE ]${NC}"
-    echo "13) Change S3 Endpoint"
-    echo "14) Change S3 Access Key ID"
-    echo "15) Change S3 Secret Access Key"
-    echo "16) Change S3 Region"
-    echo "17) Change Default Bucket"
-    echo "18) Test koneksi S3"
-    echo "33) Test S3 List Objects (v3)"
-    echo "36) Test Buat File ke S3 (input nama file)"
+    echo "15) Change S3 Endpoint"
+    echo "16) Change S3 Access Key ID"
+    echo "17) Change S3 Secret Access Key"
+    echo "18) Change S3 Region"
+    echo "19) Change Default Bucket"
+    echo "20) Test koneksi S3"
+    echo "21) Test S3 List Objects (v3)"
+    echo "22) Test Buat File ke S3 (input nama file)"
     echo ""
     echo -e "${MAGENTA}[ SUPABASE STORAGE ]${NC}"
-    echo "19) Ganti Supabase Service Role Key"
-    echo "29) Ganti Supabase URL"
-    echo "30) Test koneksi Supabase"
-    echo "31) Ganti Supabase Bucket Name"
-    echo "32) Test Supabase Storage (list objects)"
+    echo "23) Ganti Supabase Service Role Key"
+    echo "24) Ganti Supabase URL"
+    echo "25) Test koneksi Supabase"
+    echo "26) Ganti Supabase Bucket Name"
+    echo "27) Test Supabase Storage (list objects)"
     echo ""
     echo -e "${CYAN}[ OPENAPI GENERATOR ]${NC}"
-    echo "20) Generate → Hanya Supabase CRUD"
-    echo "21) Generate → Hanya S3 File Operations"
-    echo "22) Generate → Full Combo (default)"
+    echo "28) Generate → Hanya Supabase CRUD"
+    echo "29) Generate → Hanya S3 File Operations"
+    echo "30) Generate → Full Combo (default)"
     echo ""
     echo -e "${YELLOW}[ DOCKER CONTROL ]${NC}"
-    echo "23) Start Docker-Compose"
-    echo "24) Stop Docker-Compose"
-    echo "25) Rebuild Docker tanpa cache"
+    echo "31) Start Docker-Compose"
+    echo "32) Stop Docker-Compose"
+    echo "33) Rebuild Docker tanpa cache"
     echo ""
     echo -e "${RED}[ MAINTENANCE & TESTING ]${NC}"
-    echo "26) Test semua endpoint (dengan Bearer Token)"
-    echo "27) Backup semua (termasuk Bearer Token)"
-    echo "28) Uninstall total bersih"
+    echo "34) Test semua endpoint (dengan Bearer Token)"
+    echo "35) Backup semua (termasuk Bearer Token)"
+    echo "36) Uninstall total bersih"
     echo ""
     echo -e "${NC}[ LAINNYA ]${NC}"
     echo " 0)  Keluar"
@@ -194,37 +194,39 @@ generate_bearer_token() {
 install_native() {
     echo -e "${GREEN}[INSTALL NATIVE MODE]${NC}"
     ensure_structure
-    
-    # Update system
-    apt update && apt upgrade -y
-    
-    # Install dependencies
-    apt install -y curl git nginx certbot python3-certbot-nginx
-    
-    # Install Node.js 20
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt install -y nodejs
-    
-    # Install PM2
-    npm install -g pm2
-    
-    # Create directories
-    mkdir -p ${PROJECT_ROOT}
-    cd ${PROJECT_ROOT}
-    
-    # Clone or copy files
-    if [ -d ".git" ]; then
-        git pull
-    fi
-    
-    mkdir -p ${APP_DIR}/public/.well-known
-    mkdir -p ${APP_DIR}/logs
-    
-    # Generate Bearer Token
-    BEARER_TOKEN=$(generate_bearer_token)
-    
-    # Create .env
-    cat > ${ENV_FILE} <<EOF
+        echo -n "Overwrite SSL (fullchain.pem & privkey.pem)? [yes/no]: "
+        read -r OVERWRITE_SSL
+
+        # Update system
+        apt update && apt upgrade -y
+
+        # Install dependencies
+        apt install -y curl git nginx certbot python3-certbot-nginx
+
+        # Install Node.js 20
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+        apt install -y nodejs
+
+        # Install PM2
+        npm install -g pm2
+
+        # Create directories
+        mkdir -p ${PROJECT_ROOT}
+        cd ${PROJECT_ROOT}
+
+        # Clone or copy files
+        if [ -d ".git" ]; then
+            git pull
+        fi
+
+        mkdir -p ${APP_DIR}/public/.well-known
+        mkdir -p ${APP_DIR}/logs
+
+        # Generate Bearer Token
+        BEARER_TOKEN=$(generate_bearer_token)
+
+        # Create .env
+        cat > ${ENV_FILE} <<EOF
 # Server
 PORT=3000
 NODE_ENV=production
@@ -321,23 +323,25 @@ NGINXCONF
 install_docker() {
     echo -e "${GREEN}[INSTALL DOCKER MODE]${NC}"
     ensure_structure
-    
+    echo -n "Overwrite SSL (fullchain.pem & privkey.pem)? [yes/no]: "
+    read -r OVERWRITE_SSL
+
     # Install Docker
     apt update
     apt install -y docker.io docker-compose
     systemctl enable docker
     systemctl start docker
-    
+
     # Create directories
     mkdir -p ${PROJECT_ROOT}
     cd ${PROJECT_ROOT}
-    
+
     mkdir -p ${APP_DIR}/public/.well-known
     mkdir -p ${APP_DIR}/logs
-    
+
     # Generate Bearer Token
     BEARER_TOKEN=$(generate_bearer_token)
-    
+
     # Create .env
     cat > ${ENV_FILE} <<EOF
 PORT=3000
