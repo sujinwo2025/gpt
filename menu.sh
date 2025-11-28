@@ -110,21 +110,20 @@ NC='\033[0m'
 clear
 
 banner() {
-    echo -e "${GREEN}"
-    echo " /\$\$\$\$\$\$\$  /\$\$\$\$\$\$\$\$ /\$\$\$\$\$\$\$\$       /\$\$\$\$\$\$  /\$\$\$\$\$\$\$\$ /\$\$ /\$\$ /\$\$\$\$\$\$\$\$"
-    echo "/\$\$__  \$\$|__  \$\$__/|__  \$\$__/      /\$\$__  \$\$|__  \$\$__/|__/|  \$\$__  \$\$"
-    echo "| \$\$  \\\__/   | \$\$      | \$\$        | \$\$  \\ \$\$   | \$\$    /\$\$| \$\$ \\ \$\$"
-    echo "| \$\$ /\$\$\$\$  | \$\$\$\$\$\$\$\$/  | \$\$        | \$\$  | \$\$   | \$\$\$\$\$\$\$\$/| \$\$| \$\$ | \$\$"
-    echo "| \$\$|_  \$\$ | \$\$____/   | \$\$        | \$\$  | \$\$   | \$\$____/ | \$\$| \$\$ | \$\$"
-    echo "| \$\$  \\ \$\$ | \$\$        | \$\$        | \$\$  | \$\$   | \$\$      | \$\$| \$\$ | \$\$"
-    echo "|  \$\$\$\$\$\$/ | \$\$\$\$\$\$\$\$ | \$\$        |  \$\$\$\$\$\$/   | \$\$      | \$\$|  \$\$\$\$\$\$\$/"
-    echo " \\______/  |________/|__/         \\______/    |__/      |__/ \\______/"
     echo -e "${CYAN}"
-    echo "════════════════════════════════════════════════════════════════════════"
-    echo -e "${YELLOW}  Custom Actions Server – files.bytrix.my.id${NC}"
-    echo -e "${MAGENTA}  Bearer Token + Domain Verification + Supabase + S3${NC}"
-    echo -e "${BLUE}  Path: /opt/gpt${NC}"
-    echo -e "${CYAN}════════════════════════════════════════════════════════════════════════${NC}"
+    echo "╔═══════════════════════════════════════════════════════════════════════╗"
+    echo "║   ██████╗ ██╗   ██╗████████╗██████╗ ██╗██╗  ██╗                      ║"
+    echo "║   ██╔══██╗██║   ██║╚══██╔══╝██╔══██╗██║╚██╗██╔╝                      ║"
+    echo "║   ██████╔╝██║   ██║   ██║   ██████╔╝██║ ╚███╔╝                       ║"
+    echo "║   ██╔═══╝ ██║   ██║   ██║   ██╔═══╝ ██║ ██╔██╗                       ║"
+    echo "║   ██║     ╚██████╔╝   ██║   ██║     ██║██╔╝ ██╗                      ║"
+    echo "║   ╚═╝      ╚═════╝    ╚═╝   ╚═╝     ╚═╝╚═╝  ╚═╝                      ║"
+    echo "╠═══════════════════════════════════════════════════════════════════════╣"
+    echo "║ Custom Actions Server – files.bytrix.my.id                           ║"
+    echo "║ Bearer Token • Domain Verification • Supabase • S3                   ║"
+    echo "║ Path: /opt/gpt                                                      ║"
+    echo "╚═══════════════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
     echo ""
 }
 
@@ -430,7 +429,12 @@ update_from_github() {
         chmod +x "${PROJECT_ROOT}/install.sh" || true
     fi
     echo "[AUTO] chmod +x applied to menu.sh and install.sh"
-    
+
+    # DO NOT overwrite .env during update
+    # if [ -f "${ENV_FILE}" ]; then
+    #     echo "[INFO] .env file preserved."
+    # fi
+
     if [ -f "${PROJECT_ROOT}/docker-compose.yml" ] && command -v docker-compose >/dev/null 2>&1; then
         docker-compose down || true
         docker-compose up -d --build || true
@@ -441,8 +445,8 @@ update_from_github() {
             echo -e "${YELLOW}Note:${NC} pm2 not found; skipping process restart."
         fi
     fi
-    
-    echo -e "${GREEN}✓ Update complete (git pull/reset + npm install + restart)!${NC}"
+
+    echo -e "${GREEN}✓ Update complete (git pull/reset + npm install + restart, .env preserved)!${NC}"
 }
 
 restart_services() {
