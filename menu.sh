@@ -14,6 +14,20 @@ NGINX_CONF="/etc/nginx/sites-available/gpt-actions"
 DOMAIN="files.bytrix.my.id"
 WELL_KNOWN_FILE="${APP_DIR}/public/.well-known/openai.json"
 
+# Safely set or insert a key=value in .env (handles any characters)
+set_env_var() {
+    KEY="$1"
+    VAL="$2"
+    FILE="${ENV_FILE}"
+    mkdir -p "$(dirname "$FILE")"
+    touch "$FILE"
+    awk -v k="$KEY" -v v="$VAL" 'BEGIN{found=0}
+        $0 ~ "^" k "=" {print k "=" v; found=1; next}
+        {print}
+        END{if(!found) print k "=" v}
+    ' "$FILE" > "$FILE.tmp" && mv "$FILE.tmp" "$FILE"
+}
+
 # Ensure directory structure automatically (migration helper)
 ensure_structure() {
     # If running outside /opt/gpt (e.g., cloned to $PWD), migrate automatically
@@ -579,7 +593,7 @@ NGINXCONF
 change_s3_endpoint() {
     echo "Enter new S3 Endpoint:"
     read -r NEW_ENDPOINT
-    sed -i "s|^S3_ENDPOINT=.*|S3_ENDPOINT=${NEW_ENDPOINT}|" ${ENV_FILE}
+    set_env_var "S3_ENDPOINT" "${NEW_ENDPOINT}"
     restart_services
     echo -e "${GREEN}✓ S3 Endpoint updated!${NC}"
 }
@@ -587,7 +601,7 @@ change_s3_endpoint() {
 change_s3_access_key() {
     echo "Enter new S3 Access Key ID:"
     read -r NEW_KEY
-    sed -i "s/^S3_ACCESS_KEY_ID=.*/S3_ACCESS_KEY_ID=${NEW_KEY}/" ${ENV_FILE}
+    set_env_var "S3_ACCESS_KEY_ID" "${NEW_KEY}"
     restart_services
     echo -e "${GREEN}✓ S3 Access Key updated!${NC}"
 }
@@ -595,7 +609,7 @@ change_s3_access_key() {
 change_s3_secret_key() {
     echo "Enter new S3 Secret Access Key:"
     read -r NEW_SECRET
-    sed -i "s/^S3_SECRET_ACCESS_KEY=.*/S3_SECRET_ACCESS_KEY=${NEW_SECRET}/" ${ENV_FILE}
+    set_env_var "S3_SECRET_ACCESS_KEY" "${NEW_SECRET}"
     restart_services
     echo -e "${GREEN}✓ S3 Secret Key updated!${NC}"
 }
@@ -603,7 +617,7 @@ change_s3_secret_key() {
 change_s3_region() {
     echo "Enter new S3 Region:"
     read -r NEW_REGION
-    sed -i "s/^S3_REGION=.*/S3_REGION=${NEW_REGION}/" ${ENV_FILE}
+    set_env_var "S3_REGION" "${NEW_REGION}"
     restart_services
     echo -e "${GREEN}✓ S3 Region updated!${NC}"
 }
@@ -611,7 +625,7 @@ change_s3_region() {
 change_s3_bucket() {
     echo "Enter new S3 Bucket:"
     read -r NEW_BUCKET
-    sed -i "s/^S3_BUCKET=.*/S3_BUCKET=${NEW_BUCKET}/" ${ENV_FILE}
+    set_env_var "S3_BUCKET" "${NEW_BUCKET}"
     restart_services
     echo -e "${GREEN}✓ S3 Bucket updated!${NC}"
 }
@@ -644,7 +658,7 @@ test_s3_connection() {
 change_supabase_key() {
     echo "Enter new Supabase Service Role Key:"
     read -r NEW_KEY
-    sed -i "s/^SUPABASE_SERVICE_ROLE_KEY=.*/SUPABASE_SERVICE_ROLE_KEY=${NEW_KEY}/" ${ENV_FILE}
+    set_env_var "SUPABASE_SERVICE_ROLE_KEY" "${NEW_KEY}"
     restart_services
     echo -e "${GREEN}✓ Supabase Key updated!${NC}"
 }
