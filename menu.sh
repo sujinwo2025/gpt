@@ -179,9 +179,11 @@ show_menu() {
     echo "27) Backup semua (termasuk Bearer Token)"
     echo "28) Uninstall total bersih"
     echo ""
+    echo "34) Overwrite SSL (fullchain.pem & privkey.pem)"
+    echo "35) Overwrite SSL pakai Let's Encrypt (certbot)"
     echo "0)  Keluar"
     echo ""
-    echo -n "Pilih [0-28]: "
+    echo -n "Pilih [0-28,34]: "
 }
 
 generate_bearer_token() {
@@ -1024,6 +1026,8 @@ while true; do
         26) test_all_endpoints ;;
         27) backup_all ;;
         28) uninstall_all ;;
+        34) overwrite_ssl ;;
+        35) overwrite_ssl_letsencrypt ;;
         0) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
         *) echo -e "${RED}Invalid choice!${NC}"; sleep 1 ;;
     esac
@@ -1036,3 +1040,27 @@ while true; do
         unset SKIP_PAUSE
     fi
 done
+
+# Fungsi baru: Overwrite SSL manual
+overwrite_ssl() {
+    echo -e "${YELLOW}[OVERWRITE SSL]${NC}"
+    mkdir -p ${PROJECT_ROOT}/ssl
+    echo "Paste new fullchain.pem (end with Ctrl+D):"
+    cat > ${PROJECT_ROOT}/ssl/fullchain.pem
+    echo "Paste new privkey.pem (end with Ctrl+D):"
+    cat > ${PROJECT_ROOT}/ssl/privkey.pem
+    echo -e "Testing Nginx config..."
+    nginx -t && systemctl restart nginx && echo -e "${GREEN}✓ SSL files overwritten & Nginx restarted!${NC}" || echo -e "${RED}✗ Error: SSL or Nginx config invalid!${NC}"
+}
+
+# Fungsi baru: Overwrite SSL pakai Let's Encrypt
+overwrite_ssl_letsencrypt() {
+    echo -e "${GREEN}[OVERWRITE SSL LET'S ENCRYPT]${NC}"
+    mkdir -p ${PROJECT_ROOT}/ssl
+    certbot certonly --nginx -d ${DOMAIN} --non-interactive --agree-tos -m admin@${DOMAIN} --deploy-hook "cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem ${PROJECT_ROOT}/ssl/fullchain.pem && cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem ${PROJECT_ROOT}/ssl/privkey.pem && nginx -t && systemctl restart nginx"
+    if [ -f "/opt/gpt/ssl/fullchain.pem" ] && [ -f "/opt/gpt/ssl/privkey.pem" ]; then
+        echo -e "${GREEN}✓ SSL Let's Encrypt copied & Nginx restarted!${NC}"
+    else
+        echo -e "${RED}✗ Error: SSL files not found/copy failed!${NC}"
+    fi
+}
