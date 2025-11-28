@@ -150,6 +150,7 @@ show_menu() {
     echo ""
     echo -e "${MAGENTA}[ SUPABASE ]${NC}"
     echo "19) Ganti Supabase Service Role Key"
+    echo "29) Ganti Supabase URL"
     echo ""
     echo -e "${CYAN}[ GENERATE OPENAPI 3.1.0 — DENGAN BEARER ]${NC}"
     echo "20) Generate → Hanya Supabase CRUD"
@@ -663,6 +664,14 @@ change_supabase_key() {
     echo -e "${GREEN}✓ Supabase Key updated!${NC}"
 }
 
+change_supabase_url() {
+    echo "Enter new Supabase URL (e.g., https://xyz.supabase.co):"
+    read -r NEW_URL
+    set_env_var "SUPABASE_URL" "${NEW_URL}"
+    restart_services
+    echo -e "${GREEN}✓ Supabase URL updated!${NC}"
+}
+
 generate_openapi_supabase() {
     cd ${APP_DIR}
     node generate-actions.js supabase
@@ -798,6 +807,7 @@ while true; do
         17) change_s3_bucket ;;
         18) test_s3_connection ;;
         19) change_supabase_key ;;
+        29) change_supabase_url ;;
         20) generate_openapi_supabase ;;
         21) generate_openapi_s3 ;;
         22) generate_openapi_full ;;
