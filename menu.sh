@@ -14,6 +14,68 @@ NGINX_CONF="/etc/nginx/sites-available/gpt-actions"
 DOMAIN="files.bytrix.my.id"
 WELL_KNOWN_FILE="${APP_DIR}/public/.well-known/openai.json"
 
+# Ensure directory structure automatically (migration helper)
+ensure_structure() {
+    # If running outside /opt/gpt (e.g., cloned to $PWD), migrate automatically
+    CURRENT_DIR=$(pwd)
+    if [ "${CURRENT_DIR}" != "${PROJECT_ROOT}" ] && [ -d "${CURRENT_DIR}" ]; then
+        # Detect if this script resides in a different folder than /opt/gpt
+        if [ ! -d "${PROJECT_ROOT}" ]; then
+            echo "[AUTO] Creating ${PROJECT_ROOT} and migrating current repo..."
+            mkdir -p "${PROJECT_ROOT}" || true
+            # Copy all contents except node_modules/temp artifacts
+            rsync -a --exclude 'node_modules' --exclude '.git' --exclude 'logs' ./ "${PROJECT_ROOT}/" 2>/dev/null || cp -r ./* "${PROJECT_ROOT}/" || true
+        fi
+    fi
+
+    # Create app directory if missing
+    if [ ! -d "${APP_DIR}" ]; then
+        echo "[AUTO] Creating app directory: ${APP_DIR}"
+        mkdir -p "${APP_DIR}"
+    fi
+
+    # Move misplaced files into app/ if they exist at root
+    for f in index.js generate-actions.js ecosystem.config.js; do
+        if [ -f "${PROJECT_ROOT}/$f" ] && [ ! -f "${APP_DIR}/$f" ]; then
+            echo "[AUTO] Moving $f into app/"
+            mv "${PROJECT_ROOT}/$f" "${APP_DIR}/$f"
+        fi
+    done
+
+    # Move package.json if at root not in app
+    if [ -f "${PROJECT_ROOT}/package.json" ] && [ ! -f "${APP_DIR}/package.json" ]; then
+        echo "[AUTO] Moving package.json into app/"
+        mv "${PROJECT_ROOT}/package.json" "${APP_DIR}/package.json"
+    fi
+
+    # Ensure public/.well-known exists
+    if [ ! -d "${APP_DIR}/public/.well-known" ]; then
+        echo "[AUTO] Creating public/.well-known"
+        mkdir -p "${APP_DIR}/public/.well-known"
+    fi
+
+    # Ensure actions.json generated if missing and we have generator
+    if [ -f "${APP_DIR}/generate-actions.js" ] && [ ! -f "${APP_DIR}/public/actions.json" ]; then
+        echo "[AUTO] Generating initial OpenAPI spec (full)"
+        (cd "${APP_DIR}" && node generate-actions.js full || true)
+    fi
+
+    # Ensure domain verification file
+    if [ ! -f "${WELL_KNOWN_FILE}" ]; then
+        echo "[AUTO] Creating domain verification file"
+        cat > "${WELL_KNOWN_FILE}" <<EOF
+{
+  "openai": {
+    "domain_verification": "${DOMAIN}"
+  }
+}
+EOF
+    fi
+
+    # Inform user about structure
+    echo "[AUTO] Structure ensured. PROJECT_ROOT=${PROJECT_ROOT} APP_DIR=${APP_DIR}"
+}
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -101,6 +163,7 @@ generate_bearer_token() {
 
 install_native() {
     echo -e "${GREEN}[INSTALL NATIVE MODE]${NC}"
+    ensure_structure
     
     # Update system
     apt update && apt upgrade -y
@@ -223,6 +286,7 @@ NGINXCONF
 
 install_docker() {
     echo -e "${GREEN}[INSTALL DOCKER MODE]${NC}"
+    ensure_structure
     
     # Install Docker
     apt update
@@ -275,6 +339,7 @@ EOF
 
 update_from_github() {
     echo -e "${YELLOW}[UPDATE FROM GITHUB]${NC}"
+    ensure_structure
     cd ${PROJECT_ROOT}
     if [ -d ".git" ]; then
         echo "Git repo detected. Fetching and resetting to origin/main..."
