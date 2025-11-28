@@ -471,17 +471,30 @@ check_domain_verification() {
         echo ""
     fi
     
-    echo "Testing public URL..."
-    RESPONSE=$(curl -s https://${DOMAIN}/.well-known/openai.json || echo "FAILED")
-    
-    if [[ "${RESPONSE}" == *"domain_verification"* ]]; then
-        echo -e "${GREEN}✓ Domain verification accessible!${NC}"
-        echo "${RESPONSE}" | jq . 2>/dev/null || echo "${RESPONSE}"
-    else
-        echo -e "${RED}✗ Domain verification NOT accessible!${NC}"
-        echo "Response: ${RESPONSE}"
-    fi
-    
+    echo "---"
+    echo "[1] Root HTTP"
+    curl -I http://${DOMAIN} || true
+    echo ""
+    echo "[2] Root HTTPS"
+    curl -I https://${DOMAIN} || true
+    echo ""
+    echo "[3] Domain verification HTTP"
+    curl -s http://${DOMAIN}/.well-known/openai.json | jq . 2>/dev/null || curl -s http://${DOMAIN}/.well-known/openai.json || true
+    echo ""
+    echo "[4] Domain verification HTTPS"
+    curl -s https://${DOMAIN}/.well-known/openai.json | jq . 2>/dev/null || curl -s https://${DOMAIN}/.well-known/openai.json || true
+    echo ""
+    echo "[5] OpenAPI HTTP title"
+    curl -s http://${DOMAIN}/actions.json | jq '.info.title' 2>/dev/null || curl -s http://${DOMAIN}/actions.json || true
+    echo ""
+    echo "[6] OpenAPI HTTPS title"
+    curl -s https://${DOMAIN}/actions.json | jq '.info.title' 2>/dev/null || curl -s https://${DOMAIN}/actions.json || true
+    echo ""
+    echo "[7] Localhost with Host header (bypass DNS)"
+    curl -I -H "Host: ${DOMAIN}" http://127.0.0.1/ || true
+    echo ""
+    echo "[8] Localhost verification"
+    curl -s -H "Host: ${DOMAIN}" http://127.0.0.1/.well-known/openai.json | jq . 2>/dev/null || curl -s -H "Host: ${DOMAIN}" http://127.0.0.1/.well-known/openai.json || true
     echo ""
     read -p "Press Enter to continue..."
 }
