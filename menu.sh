@@ -274,7 +274,16 @@ NGINXCONF
     # Start with PM2
     pm2 start ecosystem.config.js
     pm2 save
-    pm2 startup | tail -n 1 | bash
+    # Safer PM2 startup (avoid piping shell prompt artifacts)
+    if command -v systemctl >/dev/null 2>&1; then
+        pm2 startup systemd -u $(whoami) --hp $(eval echo ~$USER) >/dev/null 2>&1 || true
+    else
+        # Fallback generic startup output parsing
+        START_CMD=$(pm2 startup | grep -E "pm2 .*startup" | tail -n 1)
+        if [ -n "$START_CMD" ]; then
+            eval "$START_CMD" || true
+        fi
+    fi
     
     echo -e "${GREEN}✓ Installation complete!${NC}"
     echo -e "${YELLOW}Bearer Token:${NC} ${BEARER_TOKEN}"
