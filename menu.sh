@@ -729,7 +729,7 @@ test_s3_list_objects() {
         s3.send(new ListObjectsV2Command({ Bucket, Prefix, MaxKeys }))
             .then(data => {
                 console.log('✅ ListObjectsV2 success');
-                const list = (data.Contents || []).map(o => `${o.Key} (${o.Size}B)`);
+                const list = (data.Contents || []).map(o => (String(o.Key) + ' (' + String(o.Size || 0) + 'B)'));
                 if (list.length === 0) console.log('Objects: <empty>');
                 else console.log('Objects:\n - ' + list.join('\n - '));
             })
