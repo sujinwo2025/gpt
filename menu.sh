@@ -257,24 +257,13 @@ EOF
 HTML
     fi
     cat > ${NGINX_CONF} <<'NGINXCONF'
-server {
-    # Rainbow "GPT CRUD" header
-    echo -e "${RED}  █▀▀  █▀█  █▀▀    ${YELLOW} █▀▀  █▄█  █▀▄    ${GREEN} █▀▀  █░█  █▀▄    ${CYAN} GPT CRUD${NC}"
-    echo -e "${RED}  █▄▄  █▄█  █▄█    ${YELLOW} █▄▄  ▀█▀  █▄▀    ${GREEN} █▄█  █▄█  █▄▀${NC}"
-    echo -e "${BLUE}────────────────────────────────────────────────────────────────────────${NC}"
-    # Original ASCII banner with subtle color shifts
-    echo -e "${GREEN} /\$\$\$\$\$\$\$  /\$\$\$\$\$\$\$ /\$\$\$\$\$\$\$       /\$\$\$\$\$  /\$\$\$\$\$\$\$ /\$\$ /\$\$ /\$\$\$\$\$\$\$${NC}"
-    echo -e "${YELLOW}/\$\$__  \$\$|__  \$\$__/|__  \$\$__/      /\$\$__  \$\$|__  \$\$__/|__/|  \$\$__  \$\$${NC}"
-    echo -e "${MAGENTA}| \$\$  \\__/   | \$\$      | \$\$        | \$\$  \\ \$\$   | \$\$    /\$\$| \$\$ \\ \$\$${NC}"
-    echo -e "${BLUE} | \$\$ /\$\$\$\$  | \$\$\$\$\$\$/  | \$\$        | \$\$  | \$\$   | \$\$\$\$\$\$/| \$\$| \$\$ | \$\$${NC}"
-    echo -e "${CYAN} | \$\$|_  \$\$ | \$\$____/   | \$\$        | \$\$  | \$\$   | \$\$____/ | \$\$| \$\$ | \$\$${NC}"
-    echo -e "${GREEN}| \$\$  \\ \$\$ | \$\$        | \$\$        | \$\$  | \$\$   | \$\$      | \$\$| \$\$ | \$\$${NC}"
-    echo -e "${YELLOW}|  \$\$\$\$\$/ | \$\$\$\$\$\$ | \$\$        |  \$\$\$\$\$/   | \$\$      | \$\$|  \$\$\$\$\$/${NC}"
-    echo -e "${MAGENTA} \\______/  |________/|__/         \\______/    |__/      |__/ \\______${NC}"
-    echo -e "${CYAN}════════════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${YELLOW}  Custom Actions Server – files.bytrix.my.id${NC}"
-    echo -e "${MAGENTA}  Bearer Token + Domain Verification + Supabase + S3${NC}"
-    echo -e "${BLUE}  Path: /opt/gpt${NC}"
+banner() {
+    # Small, colorful banner
+    echo -e "${RED}G${YELLOW}P${GREEN}T${CYAN} ${MAGENTA}C${BLUE}R${YELLOW}U${GREEN}D${NC}"
+    echo -e "${CYAN}Custom Actions • Bearer • Domain • Supabase • S3${NC}"
+    echo -e "${BLUE}/opt/gpt • files.bytrix.my.id${NC}"
+    echo ""
+}
     echo -e "${CYAN}════════════════════════════════════════════════════════════════════════${NC}"
     echo ""
         proxy_set_header X-Real-IP $remote_addr;
