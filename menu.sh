@@ -380,6 +380,15 @@ update_from_github() {
     fi
     cd ${APP_DIR}
     npm install
+
+    # Ensure scripts are executable
+    if [ -f "${PROJECT_ROOT}/menu.sh" ]; then
+        chmod +x "${PROJECT_ROOT}/menu.sh" || true
+    fi
+    if [ -f "${PROJECT_ROOT}/install.sh" ]; then
+        chmod +x "${PROJECT_ROOT}/install.sh" || true
+    fi
+    echo "[AUTO] chmod +x applied to menu.sh and install.sh"
     
     if [ -f "${PROJECT_ROOT}/docker-compose.yml" ]; then
         docker-compose down
