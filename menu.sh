@@ -453,8 +453,14 @@ update_from_github() {
     fi
 
     echo -e "${GREEN}✓ Update complete (git pull/reset + npm install + restart, .env preserved)!${NC}"
-        # Auto-restart menu.sh after update for seamless UX
+    # Auto-restart menu.sh after update for seamless UX
+    if [ -f "${PROJECT_ROOT}/menu.sh" ]; then
+        exec "${PROJECT_ROOT}/menu.sh"
+    elif [ -f "$0" ]; then
         exec "$0"
+    else
+        echo -e "${RED}Gagal auto-restart menu.sh: file tidak ditemukan!${NC}"
+    fi
 }
 
 restart_services() {
