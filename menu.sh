@@ -129,25 +129,27 @@ banner() {
 
 show_menu() {
     banner
-    echo -e "${CYAN}[ INSTALLATION ]${NC}"
-    echo "1)  Install pertama kali (Native — PM2 + Nginx)"
-    echo "2)  Install pertama kali (Docker-Compose mode)"
-    echo "3)  Update dari GitHub + rebuild + restart"
-    echo "4)  Restart semua service"
-    echo "5)  Lihat log real-time"
+    echo -e "${CYAN}[ INSTALL & UPDATE ]${NC}"
+    echo " 1)  Install pertama kali (Native — PM2 + Nginx)"
+    echo " 2)  Install pertama kali (Docker-Compose mode)"
+    echo " 3)  Update dari GitHub + rebuild + restart"
+    echo " 4)  Restart semua service"
+    echo " 5)  Lihat log real-time"
     echo ""
-    echo -e "${YELLOW}[ SECURITY & OPENAI VERIFICATION ]${NC}"
-    echo "6)  Generate ulang Bearer Token (64 char) → otomatis update OpenAPI"
-    echo "7)  Cek status domain verification OpenAI"
-    echo "8)  Ganti Bearer Token manual (paste sendiri)"
+    echo -e "${YELLOW}[ SECURITY & VERIFICATION ]${NC}"
+    echo " 6)  Generate ulang Bearer Token (64 char) → otomatis update OpenAPI"
+    echo " 7)  Cek status domain verification OpenAI"
+    echo " 8)  Ganti Bearer Token manual (paste sendiri)"
     echo ""
     echo -e "${GREEN}[ SSL MANAGEMENT ]${NC}"
-    echo "9)  Aktifkan SSL Let's Encrypt"
+    echo " 9)  Aktifkan SSL Let's Encrypt"
     echo "10) Aktifkan Custom SSL → Paste fullchain.pem + privkey.pem"
     echo "11) Ganti Custom SSL"
     echo "12) Kembali ke Let's Encrypt"
+    echo "34) Overwrite SSL (fullchain.pem & privkey.pem)"
+    echo "35) Overwrite SSL pakai Let's Encrypt (certbot)"
     echo ""
-    echo -e "${BLUE}[ S3 EKSTERNAL ]${NC}"
+    echo -e "${BLUE}[ S3 STORAGE ]${NC}"
     echo "13) Change S3 Endpoint"
     echo "14) Change S3 Access Key ID"
     echo "15) Change S3 Secret Access Key"
@@ -155,15 +157,16 @@ show_menu() {
     echo "17) Change Default Bucket"
     echo "18) Test koneksi S3"
     echo "33) Test S3 List Objects (v3)"
+    echo "36) Test Buat File ke S3 (input nama file)"
     echo ""
-    echo -e "${MAGENTA}[ SUPABASE ]${NC}"
+    echo -e "${MAGENTA}[ SUPABASE STORAGE ]${NC}"
     echo "19) Ganti Supabase Service Role Key"
     echo "29) Ganti Supabase URL"
     echo "30) Test koneksi Supabase"
     echo "31) Ganti Supabase Bucket Name"
     echo "32) Test Supabase Storage (list objects)"
     echo ""
-    echo -e "${CYAN}[ GENERATE OPENAPI 3.1.0 — DENGAN BEARER ]${NC}"
+    echo -e "${CYAN}[ OPENAPI GENERATOR ]${NC}"
     echo "20) Generate → Hanya Supabase CRUD"
     echo "21) Generate → Hanya S3 File Operations"
     echo "22) Generate → Full Combo (default)"
@@ -173,16 +176,15 @@ show_menu() {
     echo "24) Stop Docker-Compose"
     echo "25) Rebuild Docker tanpa cache"
     echo ""
-    echo -e "${RED}[ MAINTENANCE ]${NC}"
+    echo -e "${RED}[ MAINTENANCE & TESTING ]${NC}"
     echo "26) Test semua endpoint (dengan Bearer Token)"
     echo "27) Backup semua (termasuk Bearer Token)"
     echo "28) Uninstall total bersih"
     echo ""
-    echo "34) Overwrite SSL (fullchain.pem & privkey.pem)"
-    echo "35) Overwrite SSL pakai Let's Encrypt (certbot)"
-    echo "0)  Keluar"
+    echo -e "${NC}[ LAINNYA ]${NC}"
+    echo " 0)  Keluar"
     echo ""
-    echo -n "Pilih [0-28,34]: "
+    echo -n "Pilih menu: "
 }
 
 generate_bearer_token() {
@@ -999,7 +1001,7 @@ while true; do
     case $choice in
         1) install_native ;;
         2) install_docker ;;
-        3) update_from_github ;;
+        3) update_from_github ; SKIP_PAUSE=1 ;;
         4) restart_services ;;
         5) show_logs ;;
         6) regenerate_bearer_token ;;
@@ -1032,6 +1034,54 @@ while true; do
         28) uninstall_all ;;
         34) overwrite_ssl ;;
         35) overwrite_ssl_letsencrypt ;;
+        36) test_create_file_logic ;;
+        # Test create file logic to S3
+        test_create_file_logic() {
+            echo -e "${CYAN}[TEST BUAT FILE KE S3]${NC}"
+            cd ${APP_DIR}
+            if ! npm ls @aws-sdk/client-s3 >/dev/null 2>&1; then
+                echo "Installing @aws-sdk/client-s3 ..."
+                npm i -s @aws-sdk/client-s3 >/dev/null 2>&1 || npm i -s @aws-sdk/client-s3
+            fi
+            echo "Masukkan nama file (misal: test-gpt.txt):"
+            read -r FILE_NAME
+            if [ -z "$FILE_NAME" ]; then
+                echo -e "${RED}✗ Nama file tidak boleh kosong!${NC}"
+                return
+            fi
+            # Upload dummy file ke S3
+            node -e "
+            const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+            require('dotenv').config();
+            const endpoint = process.env.S3_ENDPOINT;
+            const region = process.env.S3_REGION || 'us-east-1';
+            const bucket = process.env.S3_BUCKET;
+            const config = { region };
+            if (endpoint) config.endpoint = endpoint;
+            if (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
+                config.credentials = {
+                    accessKeyId: process.env.S3_ACCESS_KEY_ID,
+                    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+                };
+            }
+            const s3 = new S3Client(config);
+            const params = {
+                Bucket: bucket,
+                Key: process.env.__FILENAME,
+                Body: 'Hello from GPT!',
+                ContentType: 'text/plain',
+            };
+            s3.send(new PutObjectCommand(params))
+                .then(() => {
+                    console.log('✅ File berhasil diupload ke S3:', params.Key);
+                })
+                .catch(err => {
+                    console.log('❌ Gagal upload:', err.name || err.code, '-', err.message);
+                });
+            " __FILENAME="$FILE_NAME"
+            echo ""
+            read -p "Press Enter to continue..."
+        }
         0) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
         *) echo -e "${RED}Invalid choice!${NC}"; sleep 1 ;;
     esac
