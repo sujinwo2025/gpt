@@ -152,6 +152,7 @@ show_menu() {
     echo "19) Ganti Supabase Service Role Key"
     echo "29) Ganti Supabase URL"
     echo "30) Test koneksi Supabase"
+    echo "31) Ganti Supabase Bucket Name"
     echo ""
     echo -e "${CYAN}[ GENERATE OPENAPI 3.1.0 — DENGAN BEARER ]${NC}"
     echo "20) Generate → Hanya Supabase CRUD"
@@ -221,6 +222,7 @@ SERVER_BEARER_TOKEN=${BEARER_TOKEN}
 # Supabase
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_BUCKET=public
 
 # S3 Compatible Storage
 S3_ENDPOINT=https://s3.amazonaws.com
@@ -330,6 +332,7 @@ NODE_ENV=production
 SERVER_BEARER_TOKEN=${BEARER_TOKEN}
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_BUCKET=public
 S3_ENDPOINT=https://s3.amazonaws.com
 S3_ACCESS_KEY_ID=your-access-key
 S3_SECRET_ACCESS_KEY=your-secret-key
@@ -670,6 +673,18 @@ change_supabase_url() {
     echo -e "${GREEN}✓ Supabase URL updated!${NC}"
 }
 
+change_supabase_bucket() {
+    echo "Enter Supabase Storage Bucket Name (e.g., public):"
+    read -r NEW_BUCKET
+    if [ -z "${NEW_BUCKET}" ]; then
+        echo -e "${RED}✗ Bucket name cannot be empty${NC}"
+        return
+    fi
+    set_env_var "SUPABASE_BUCKET" "${NEW_BUCKET}"
+    restart_services
+    echo -e "${GREEN}✓ Supabase Bucket updated!${NC}"
+}
+
 test_supabase_connection() {
     echo -e "${CYAN}[TEST SUPABASE CONNECTION]${NC}"
     if [ ! -f "${ENV_FILE}" ]; then
@@ -836,6 +851,7 @@ while true; do
         19) change_supabase_key ;;
         29) change_supabase_url ;;
         30) test_supabase_connection ;;
+        31) change_supabase_bucket ;;
         20) generate_openapi_supabase ;;
         21) generate_openapi_s3 ;;
         22) generate_openapi_full ;;
