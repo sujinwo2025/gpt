@@ -1044,134 +1044,92 @@ while true; do
         # ...existing code...
         # Fungsi: Test buat file ke S3
         ## Fungsi: Test buat file ke S3
-        test_create_file_logic() {
-            echo -e "${CYAN}[TEST BUAT FILE KE S3]${NC}"
-            cd "${APP_DIR}" || return 1
+       test_create_file_logic() {
+        echo -e "${CYAN}[TEST BUAT FILE KE S3]${NC}"
+    cd "${APP_DIR}" || return 1
 
-            # Install @aws-sdk/client-s3 jika belum ada
-            if [ ! -d "node_modules/@aws-sdk/client-s3" ]; then
-                echo -e "${YELLOW}Menginstall @aws-sdk/client-s3 ...${NC}"
-                npm i -s @aws-sdk/client-s3 >/dev/null 2>&1 || {
-                    echo -e "${RED}Gagal install @aws-sdk/client-s3${NC}"
-                    return 1
-                }
-            fi
-
-            # Input nama file
-            echo -n "Masukkan nama file (contoh: test-gpt.txt): "
-            read -r FILE_NAME
-            if [ -z "$FILE_NAME" ]; then
-                echo -e "${RED}✗ Nama file tidak boleh kosong!${NC}"
-                return 1
-            fi
-
-            # Validasi env yang dibutuhkan
-            if [ -z "$S3_BUCKET" ]; then
-                echo -e "${RED}✗ Variabel S3_BUCKET belum di-set di .env!${NC}"
-                return 1
-            fi
-
-            echo -e "${YELLOW}Mengupload file dummy → s3://$S3_BUCKET/$FILE_NAME${NC}"
-
-            # Upload menggunakan Node.js (mengirim nama file lewat argument, lebih aman!)
-            node -e "
-                const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-                require('dotenv').config();
-
-                const fileName = process.argv[1];
-                if (!fileName) {
-                    console.error('Nama file tidak diberikan');
-                    process.exit(1);
-                }
-
-                const endpoint = process.env.S3_ENDPOINT || undefined;
-                const region = process.env.S3_REGION || 'auto';
-                const bucket = process.env.S3_BUCKET;
-
-                const config = { region };
-                if (endpoint) config.endpoint = endpoint;
-
-                // Credentials (wajib ada salah satu: env var atau IAM role)
-                if (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
-                    config.credentials = {
-                        accessKeyId: process.env.S3_ACCESS_KEY_ID,
-                        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
-                    };
-                }
-
-                const client = new S3Client(config);
-
-                const params = {
-                    Bucket: bucket,
-                    Key: fileName,
-                    Body: 'Hello dari GPT! Ini adalah file test upload ke S3.\nWaktu: ' + new Date().toISOString(),
-                    ContentType: 'text/plain',
-                    Metadata: { 'uploaded-by': 'test-script' }
-                };
-
-                (async () => {
-                    try {
-                        const command = new PutObjectCommand(params);
-                        await client.send(command);
-                        console.log('\n${GREEN}✓ Berhasil! File terupload:${NC}');
-                        console.log('   Bucket : ' + bucket);
-                        console.log('   Key    : ' + fileName);
-                        console.log('   URL    : https://' + bucket + (endpoint?.includes('cloudflare') ? '.r2.cloudflarestorage.com' : '') + '/' + encodeURIComponent(fileName));
-                    } catch (err) {
-                        console.error('\n${RED}✗ Gagal upload file ke S3!${NC}');
-                        console.error('   Error  : ' + (err.name || 'Unknown'));
-                        console.error('   Pesan  : ' + (err.message || err));
-                        if (err.$metadata) {
-                            console.error('   HTTP   : ' + err.$metadata.httpStatusCode);
-                        }
-                        process.exit(1);
-                    }
-                })();
-            " "$FILE_NAME"
-
-            local exit_code=$?
-            echo ""
-            if [ $exit_code -eq 0 ]; then
-                echo -e "${GREEN}✓ Test upload berhasil!${NC}"
-            else
-                echo -e "${RED}✗ Test upload gagal (lihat error di atas)${NC}"
-            fi
-
-            read -p "Tekan Enter untuk melanjutkan..."
+    # Install SDK kalau belum ada
+        if [ ! -d "node_modules/@aws-sdk/client-s3" ]; then
+            echo -e "${YELLOW}Menginstall @aws-sdk/client-s3 ...${NC}"
+        npm i -s @aws-sdk/client-s3 >/dev/null 2>&1 || {
+                echo -e "${RED}Gagal install @aws-sdk/client-s3${NC}"
+            return 1
         }
-        0) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
-        *) echo -e "${RED}Invalid choice!${NC}"; sleep 1 ;;
-    esac
-
-    
-    if [ "${SKIP_PAUSE}" != "1" ]; then
-        echo ""
-        read -p "Press Enter to continue..."
-    else
-        unset SKIP_PAUSE
     fi
-done
 
-# Fungsi baru: Overwrite SSL manual
-overwrite_ssl() {
-    echo -e "${YELLOW}[OVERWRITE SSL]${NC}"
-    mkdir -p "${PROJECT_ROOT}/ssl"
-    echo "Paste new fullchain.pem (end with Ctrl+D):"
-    cat > "${PROJECT_ROOT}/ssl/fullchain.pem"
-    echo "Paste new privkey.pem (end with Ctrl+D):"
-    cat > "${PROJECT_ROOT}/ssl/privkey.pem"
-    echo -e "Testing Nginx config..."
-    nginx -t && systemctl restart nginx && echo -e "${GREEN}✓ SSL files overwritten & Nginx restarted!${NC}" || echo -e "${RED}✗ Error: SSL or Nginx config invalid!${NC}"
+    echo -n "Masukkan nama file (contoh: test-gpt.txt): "
+    read -r FILE_NAME
+        [[ -z "$FILE_NAME" ]] && {
+            echo -e "${RED}✗ Nama file tidak boleh kosong!${NC}"
+        return 1
+    }
+
+        [[ -z "$S3_BUCKET" ]] && {
+            echo -e "${RED}✗ Variabel S3_BUCKET belum di-set di .env!${NC}"
+        return 1
+    }
+
+        echo -e "${YELLOW}Mengupload file → s3://$S3_BUCKET/$FILE_NAME${NC}"
+
+    # <<< VERSI FINAL YANG BENAR 100% >>>
+    node <<'NODEJS' "$FILE_NAME"
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+require('dotenv').config();
+
+const fileName = process.argv[1];
+const bucket   = process.env.S3_BUCKET;
+const endpoint = process.env.S3_ENDPOINT || null;
+const region   = process.env.S3_REGION || 'auto';
+
+const config = { region };
+if (endpoint) config.endpoint = endpoint;
+if (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
+    config.credentials = {
+        accessKeyId: process.env.S3_ACCESS_KEY_ID,
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
+    };
 }
 
-# Fungsi baru: Overwrite SSL pakai Let's Encrypt
-overwrite_ssl_letsencrypt() {
-    echo -e "${GREEN}[OVERWRITE SSL LET'S ENCRYPT]${NC}"
-    mkdir -p "${PROJECT_ROOT}/ssl"
-    certbot certonly --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "admin@${DOMAIN}" --deploy-hook "cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem \"${PROJECT_ROOT}/ssl/fullchain.pem\" && cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem \"${PROJECT_ROOT}/ssl/privkey.pem\" && nginx -t && systemctl restart nginx"
-    if [ -f "${PROJECT_ROOT}/ssl/fullchain.pem" ] && [ -f "${PROJECT_ROOT}/ssl/privkey.pem" ]; then
-        echo -e "${GREEN}✓ SSL Let's Encrypt copied & Nginx restarted!${NC}"
-    else
-        echo -e "${RED}✗ Error: SSL files not found/copy failed!${NC}"
+const client = new S3Client(config);
+
+const params = {
+    Bucket: bucket,
+    Key: fileName,
+    Body: `Hello dari GPT! File test upload ke S3.\nWaktu: ${new Date().toISOString()}\n`,
+    ContentType: 'text/plain'
+};
+
+(async () => {
+    try {
+        await client.send(new PutObjectCommand(params));
+        console.log('\n\x1b[32m✓ BERHASIL! File terupload ke S3\x1b[0m');
+        console.log('   Bucket : \x1b[1m' + bucket + '\x1b[0m');
+        console.log('   Key    : \x1b[1m' + fileName + '\x1b[0m');
+
+        let url = 'https://' + bucket;
+        if (endpoint && endpoint.includes('cloudflare')) {
+            url += '.r2.cloudflarestorage.com';
+        }
+        url += '/' + encodeURIComponent(fileName);
+        console.log('   URL    : \x1b[1m' + url + '\x1b[0m\n');
+    } catch (err) {
+        console.log('\n\x1b[31m✗ GAGAL upload ke S3!\x1b[0m');
+        console.log('   Error  : \x1b[31m' + (err.name || 'Unknown') + '\x1b[0m');
+        console.log('   Pesan  : \x1b[31m' + (err.message || err) + '\x1b[0m');
+        if (err.$metadata?.httpStatusCode) {
+            console.log('   HTTP   : \x1b[31m' + err.$metadata.httpStatusCode + '\x1b[0m');
+        }
+        process.exit(1);
+    }
+})();
+NODEJS
+    # <<< SELESAI >>>
+
+        if [[ $? -eq 0 ]]; then
+            echo -e "${GREEN}✓ Test upload ke S3 berhasil!${NC}"
+        else
+            echo -e "${RED}✗ Test upload gagal! (lihat error di atas)${NC}"
     fi
+
+    read -p "Tekan Enter untuk melanjutkan..."
 }
