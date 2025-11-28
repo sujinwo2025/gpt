@@ -891,29 +891,59 @@ test_all_endpoints() {
         return
     fi
     
+    # shellcheck disable=SC1090
     source ${ENV_FILE}
     
-    echo "Testing with Bearer Token: ${SERVER_BEARER_TOKEN:0:20}..."
+    TOK="${SERVER_BEARER_TOKEN}"
+    BASE="https://${DOMAIN}"
+    echo "Using Bearer: ${TOK:0:12}... (masked)"
+    echo "Domain: ${DOMAIN}"
     echo ""
     
-    # Test domain verification
-    echo "1. Domain Verification:"
-    curl -s https://${DOMAIN}/.well-known/openai.json | jq . || echo "FAILED"
-    echo ""
+    # Helper: show status and brief body
+    show() {
+        NAME="$1"; shift
+        URL="$1"; shift
+        AUTH="$1"; shift
+        echo "- ${NAME}: ${URL}"
+        if [ "${AUTH}" = "auth" ]; then
+            CODE=$(curl -s -o /tmp/_out_$$ -w "%{http_code}" -H "Authorization: Bearer ${TOK}" "${URL}")
+        else
+            CODE=$(curl -s -o /tmp/_out_$$ -w "%{http_code}" "${URL}")
+        fi
+        echo "  HTTP ${CODE}"
+        if command -v jq >/dev/null 2>&1; then
+            jq -r '.[0]?, .info?.title?, .success?, .status?, .error? // empty' /tmp/_out_$$ 2>/dev/null | sed 's/^/  /' || head -n 3 /tmp/_out_$$ | sed 's/^/  /'
+        else
+            head -n 3 /tmp/_out_$$ | sed 's/^/  /'
+        fi
+        rm -f /tmp/_out_$$ 2>/dev/null || true
+        echo ""
+    }
     
-    # Test OpenAPI
-    echo "2. OpenAPI Spec:"
-    curl -s https://${DOMAIN}/actions.json | jq '.info.title' || echo "FAILED"
-    echo ""
+    echo "[Public checks]"
+    show "Health"        "${BASE}/health"            "noauth"
+    show "Verification"  "${BASE}/.well-known/openai.json" "noauth"
+    show "OpenAPI"       "${BASE}/actions.json"      "noauth"
     
-    # Test protected endpoint
-    echo "3. Protected Endpoint (without auth - should fail):"
-    curl -s https://${DOMAIN}/api/supabase/tables | jq . || echo "Expected failure"
-    echo ""
+    echo "[Protected (expect 401/403 without token)]"
+    show "Tables (no auth)" "${BASE}/api/supabase/tables" "noauth"
     
-    echo "4. Protected Endpoint (with Bearer Token):"
-    curl -s -H "Authorization: Bearer ${SERVER_BEARER_TOKEN}" https://${DOMAIN}/api/supabase/tables | jq . || echo "FAILED"
-    echo ""
+    echo "[Protected with Bearer]"
+    show "Tables"          "${BASE}/api/supabase/tables" "auth"
+    show "S3 Buckets"      "${BASE}/api/s3/buckets"      "auth"
+    show "S3 Files"        "${BASE}/api/s3/files?bucket=${S3_BUCKET}&maxKeys=10" "auth"
+    show "Supabase Files"  "${BASE}/api/supabase/storage/files?bucket=${SUPABASE_BUCKET}&limit=10" "auth"
+    
+    echo "[Presign examples]"
+    if [ -n "${S3_BUCKET}" ]; then
+        SAMPLE_KEY="sample.txt"
+        show "S3 Presign GET" "${BASE}/api/s3/presign?bucket=${S3_BUCKET}&key=${SAMPLE_KEY}&mode=get" "auth"
+        show "S3 Presign PUT" "${BASE}/api/s3/presign?bucket=${S3_BUCKET}&key=${SAMPLE_KEY}&mode=put" "auth"
+    else
+        echo "- Skip presign: S3_BUCKET not set"
+        echo ""
+    fi
     
     read -p "Press Enter to continue..."
 }
