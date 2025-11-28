@@ -6,7 +6,14 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
-const AWS = require('aws-sdk');
+const {
+  S3Client,
+  ListBucketsCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand
+} = require('@aws-sdk/client-s3');
 const multer = require('multer');
 
 const app = express();
@@ -88,17 +95,21 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('⚠ Supabase credentials not found');
 }
 
-// Initialize S3
+// Initialize S3 (AWS SDK v3)
 if (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
-  s3 = new AWS.S3({
-    endpoint: process.env.S3_ENDPOINT || 'https://s3.amazonaws.com',
-    accessKeyId: process.env.S3_ACCESS_KEY_ID,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-    region: process.env.S3_REGION || 'us-east-1',
-    s3ForcePathStyle: true,
-    signatureVersion: 'v4'
-  });
-  console.log('✓ S3 client initialized');
+  const endpoint = process.env.S3_ENDPOINT || 'https://s3.amazonaws.com';
+  const region = process.env.S3_REGION || 'us-east-1';
+  const config = {
+    region,
+    endpoint,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY_ID,
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
+    }
+  };
+  s3 = new S3Client(config);
+  console.log('✓ S3 client (v3) initialized');
 } else {
   console.warn('⚠ S3 credentials not found');
 }
@@ -324,7 +335,7 @@ app.get('/api/s3/buckets', async (req, res) => {
       return res.status(503).json({ error: 'S3 not configured' });
     }
     
-    const data = await s3.listBuckets().promise();
+    const data = await s3.send(new ListBucketsCommand({}));
     
     res.json({
       success: true,
@@ -356,11 +367,11 @@ app.get('/api/s3/files', async (req, res) => {
       return res.status(400).json({ error: 'Bucket name required' });
     }
     
-    const data = await s3.listObjectsV2({
+    const data = await s3.send(new ListObjectsV2Command({
       Bucket: bucket,
       Prefix: prefix,
       MaxKeys: maxKeys
-    }).promise();
+    }));
     
     res.json({
       success: true,
@@ -409,15 +420,14 @@ app.post('/api/s3/upload', upload.single('file'), async (req, res) => {
       ACL: 'private'
     };
     
-    const result = await s3.upload(params).promise();
+    const result = await s3.send(new PutObjectCommand(params));
     
     res.json({
       success: true,
       file: {
-        bucket: result.Bucket,
-        key: result.Key,
-        location: result.Location,
-        etag: result.ETag
+        bucket,
+        key,
+        etag: result.ETag || null
       }
     });
   } catch (error) {
@@ -447,12 +457,19 @@ app.get('/api/s3/download/:key(*)', async (req, res) => {
       Key: key
     };
     
-    const data = await s3.getObject(params).promise();
-    
-    res.set('Content-Type', data.ContentType);
-    res.set('Content-Length', data.ContentLength);
+    const data = await s3.send(new GetObjectCommand(params));
+    const streamToBuffer = async (stream) => new Promise((resolve, reject) => {
+      const chunks = [];
+      stream.on('data', (c) => chunks.push(c));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', reject);
+    });
+    const bodyBuffer = await streamToBuffer(data.Body);
+
+    if (data.ContentType) res.set('Content-Type', data.ContentType);
+    if (data.ContentLength) res.set('Content-Length', String(data.ContentLength));
     res.set('Content-Disposition', `attachment; filename="${key.split('/').pop()}"`);
-    res.send(data.Body);
+    res.send(bodyBuffer);
   } catch (error) {
     if (error.code === 'NoSuchKey') {
       return res.status(404).json({
@@ -481,10 +498,10 @@ app.delete('/api/s3/delete', async (req, res) => {
       return res.status(400).json({ error: 'Bucket and key required' });
     }
     
-    await s3.deleteObject({
+    await s3.send(new DeleteObjectCommand({
       Bucket: bucket,
       Key: key
-    }).promise();
+    }));
     
     res.json({
       success: true,
