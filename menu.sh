@@ -155,6 +155,7 @@ show_menu() {
     echo "16) Change S3 Region"
     echo "17) Change Default Bucket"
     echo "18) Test koneksi S3"
+    echo "33) Test S3 List Objects (v3)"
     echo ""
     echo -e "${MAGENTA}[ SUPABASE ]${NC}"
     echo "19) Ganti Supabase Service Role Key"
@@ -652,26 +653,92 @@ change_s3_bucket() {
 test_s3_connection() {
     echo -e "${CYAN}[TEST S3 CONNECTION]${NC}"
     cd ${APP_DIR}
-    node -e "
-    const AWS = require('aws-sdk');
-    require('dotenv').config();
-    const s3 = new AWS.S3({
-        endpoint: process.env.S3_ENDPOINT,
-        accessKeyId: process.env.S3_ACCESS_KEY_ID,
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-        region: process.env.S3_REGION,
-        s3ForcePathStyle: true
-    });
-    s3.listBuckets((err, data) => {
-        if (err) {
-            console.log('❌ Connection failed:', err.message);
-        } else {
-            console.log('✅ Connection successful!');
-            console.log('Buckets:', data.Buckets.map(b => b.Name).join(', '));
+        # Ensure AWS SDK v3 is installed
+        if ! npm ls @aws-sdk/client-s3 >/dev/null 2>&1; then
+                echo "Installing @aws-sdk/client-s3 ..."
+                npm i -s @aws-sdk/client-s3 >/dev/null 2>&1 || npm i -s @aws-sdk/client-s3
+        fi
+        node -e "
+        const { S3Client, ListBucketsCommand } = require('@aws-sdk/client-s3');
+        require('dotenv').config();
+        const endpoint = process.env.S3_ENDPOINT;
+        const region = process.env.S3_REGION || 'us-east-1';
+        const config = { region };
+        if (endpoint) config.endpoint = endpoint;
+        if (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
+            config.credentials = {
+                accessKeyId: process.env.S3_ACCESS_KEY_ID,
+                secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+            };
         }
-    });
-    "
+        const s3 = new S3Client(config);
+        s3.send(new ListBucketsCommand({}))
+            .then(data => {
+                console.log('✅ Connection successful!');
+                const names = (data.Buckets || []).map(b => b.Name);
+                console.log('Buckets:', names.join(', '));
+            })
+            .catch(err => {
+                console.log('❌ Connection failed:', err.name || err.code, '-', err.message);
+            });
+        "
     read -p "Press Enter to continue..."
+}
+
+test_s3_list_objects() {
+        echo -e "${CYAN}[TEST S3 LIST OBJECTS - AWS SDK v3]${NC}"
+        cd ${APP_DIR}
+        if ! npm ls @aws-sdk/client-s3 >/dev/null 2>&1; then
+                echo "Installing @aws-sdk/client-s3 ..."
+                npm i -s @aws-sdk/client-s3 >/dev/null 2>&1 || npm i -s @aws-sdk/client-s3
+        fi
+        # Read envs
+        if [ -f "${ENV_FILE}" ]; then
+                # shellcheck disable=SC1090
+                source "${ENV_FILE}"
+        fi
+        echo "Bucket (default: ${S3_BUCKET:-<unset>}):"
+        read -r INPUT_BUCKET
+        BUCKET_TO_USE="${INPUT_BUCKET:-${S3_BUCKET}}"
+        if [ -z "${BUCKET_TO_USE}" ]; then
+                echo -e "${RED}✗ S3_BUCKET belum diset dan tidak ada input bucket${NC}"
+                read -p "Press Enter to continue..."; return
+        fi
+        echo "Prefix (opsional, default kosong):"
+        read -r INPUT_PREFIX
+        echo "maxKeys (default 10):"
+        read -r INPUT_MAX
+        MAX_KEYS=${INPUT_MAX:-10}
+        node -e "
+        const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+        require('dotenv').config();
+        const endpoint = process.env.S3_ENDPOINT;
+        const region = process.env.S3_REGION || 'us-east-1';
+        const config = { region };
+        if (endpoint) config.endpoint = endpoint;
+        if (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
+            config.credentials = {
+                accessKeyId: process.env.S3_ACCESS_KEY_ID,
+                secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+            };
+        }
+        const s3 = new S3Client(config);
+        const Bucket = process.env.__BUCKET;
+        const Prefix = process.env.__PREFIX || undefined;
+        const MaxKeys = parseInt(process.env.__MAX_KEYS || '10', 10);
+        s3.send(new ListObjectsV2Command({ Bucket, Prefix, MaxKeys }))
+            .then(data => {
+                console.log('✅ ListObjectsV2 success');
+                const list = (data.Contents || []).map(o => `${o.Key} (${o.Size}B)`);
+                if (list.length === 0) console.log('Objects: <empty>');
+                else console.log('Objects:\n - ' + list.join('\n - '));
+            })
+            .catch(err => {
+                console.log('❌ Failed:', err.name || err.code, '-', err.message);
+            });
+        " __BUCKET="$BUCKET_TO_USE" __PREFIX="$INPUT_PREFIX" __MAX_KEYS="$MAX_KEYS"
+        echo ""
+        read -p "Press Enter to continue..."
 }
 
 change_supabase_key() {
@@ -906,6 +973,7 @@ while true; do
         16) change_s3_region ;;
         17) change_s3_bucket ;;
         18) test_s3_connection ;;
+        33) test_s3_list_objects ;;
         19) change_supabase_key ;;
         29) change_supabase_url ;;
         30) test_supabase_connection ;;
