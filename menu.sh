@@ -153,6 +153,7 @@ show_menu() {
     echo "29) Ganti Supabase URL"
     echo "30) Test koneksi Supabase"
     echo "31) Ganti Supabase Bucket Name"
+    echo "32) Test Supabase Storage (list objects)"
     echo ""
     echo -e "${CYAN}[ GENERATE OPENAPI 3.1.0 — DENGAN BEARER ]${NC}"
     echo "20) Generate → Hanya Supabase CRUD"
@@ -714,6 +715,47 @@ test_supabase_connection() {
     read -p "Press Enter to continue..."
 }
 
+test_supabase_storage() {
+    echo -e "${CYAN}[TEST SUPABASE STORAGE]${NC}"
+    if [ ! -f "${ENV_FILE}" ]; then
+        echo -e "${RED}✗ .env tidak ditemukan!${NC}"
+        return
+    fi
+    # shellcheck disable=SC1090
+    source "${ENV_FILE}"
+    if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY}" ] || [ -z "${SUPABASE_BUCKET}" ]; then
+        echo -e "${RED}✗ SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_BUCKET belum diset di .env${NC}"
+        return
+    fi
+    echo "URL: ${SUPABASE_URL}"
+    echo "Bucket: ${SUPABASE_BUCKET}"
+    TMP_OUT="/tmp/supa_list_$$.json"
+    HTTP_CODE=$(curl -s -o "${TMP_OUT}" -w "%{http_code}" \
+        -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+        -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+        -H "Content-Type: application/json" \
+        -X POST \
+        -d '{"prefix":"","limit":50,"offset":0,"sortBy":{"column":"name","order":"asc"}}' \
+        "${SUPABASE_URL}/storage/v1/object/list/${SUPABASE_BUCKET}" || echo "000")
+    if [ "${HTTP_CODE}" = "200" ]; then
+        echo -e "${GREEN}✓ Berhasil mengambil daftar objek (HTTP 200)${NC}"
+        if command -v jq >/dev/null 2>&1; then
+            echo "Objects:"
+            jq -r '.[]?.name' "${TMP_OUT}" | sed 's/^/ - /'
+        else
+            echo "Response (raw):"
+            cat "${TMP_OUT}"
+        fi
+    else
+        echo -e "${RED}✗ Gagal list objek (HTTP ${HTTP_CODE})${NC}"
+        echo "Response:"
+        cat "${TMP_OUT}"
+    fi
+    rm -f "${TMP_OUT}" 2>/dev/null || true
+    echo ""
+    read -p "Press Enter to continue..."
+}
+
 generate_openapi_supabase() {
     cd ${APP_DIR}
     node generate-actions.js supabase
@@ -852,6 +894,7 @@ while true; do
         29) change_supabase_url ;;
         30) test_supabase_connection ;;
         31) change_supabase_bucket ;;
+        32) test_supabase_storage ;;
         20) generate_openapi_supabase ;;
         21) generate_openapi_s3 ;;
         22) generate_openapi_full ;;
