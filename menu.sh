@@ -1041,12 +1041,13 @@ while true; do
         34) overwrite_ssl ;;
         35) overwrite_ssl_letsencrypt ;;
         36) test_create_file_logic ;;
-        # Test create file logic to S3
+        # ...existing code...
+        # Fungsi: Test buat file ke S3
         test_create_file_logic() {
             echo -e "${CYAN}[TEST BUAT FILE KE S3]${NC}"
             cd ${APP_DIR}
             if ! npm ls @aws-sdk/client-s3 >/dev/null 2>&1; then
-                echo "Installing @aws-sdk/client-s3 ..."
+                echo "Menginstall @aws-sdk/client-s3 ..."
                 npm i -s @aws-sdk/client-s3 >/dev/null 2>&1 || npm i -s @aws-sdk/client-s3
             fi
             echo "Masukkan nama file (misal: test-gpt.txt):"
@@ -1055,7 +1056,7 @@ while true; do
                 echo -e "${RED}✗ Nama file tidak boleh kosong!${NC}"
                 return
             fi
-            # Upload dummy file ke S3
+            # Upload file dummy ke S3
             node -e "
             const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
             require('dotenv').config();
@@ -1074,7 +1075,7 @@ while true; do
             const params = {
                 Bucket: bucket,
                 Key: process.env.__FILENAME,
-                Body: 'Hello from GPT!',
+                Body: 'Hello dari GPT!',
                 ContentType: 'text/plain',
             };
             s3.send(new PutObjectCommand(params))
@@ -1086,7 +1087,7 @@ while true; do
                 });
             " __FILENAME="$FILE_NAME"
             echo ""
-            read -p "Press Enter to continue..."
+            read -p "Tekan Enter untuk melanjutkan..."
         }
         0) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
         *) echo -e "${RED}Invalid choice!${NC}"; sleep 1 ;;
