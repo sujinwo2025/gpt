@@ -151,6 +151,7 @@ show_menu() {
     echo -e "${MAGENTA}[ SUPABASE ]${NC}"
     echo "19) Ganti Supabase Service Role Key"
     echo "29) Ganti Supabase URL"
+    echo "30) Test koneksi Supabase"
     echo ""
     echo -e "${CYAN}[ GENERATE OPENAPI 3.1.0 — DENGAN BEARER ]${NC}"
     echo "20) Generate → Hanya Supabase CRUD"
@@ -673,6 +674,35 @@ change_supabase_url() {
     echo -e "${GREEN}✓ Supabase URL updated!${NC}"
 }
 
+test_supabase_connection() {
+    echo -e "${CYAN}[TEST SUPABASE CONNECTION]${NC}"
+    if [ ! -f "${ENV_FILE}" ]; then
+        echo -e "${RED}✗ .env file not found!${NC}"
+        return
+    fi
+    # shellcheck disable=SC1090
+    source "${ENV_FILE}"
+    if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY}" ]; then
+        echo -e "${RED}✗ SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing in .env${NC}"
+        return
+    fi
+    echo "URL: ${SUPABASE_URL}"
+    echo "Testing REST endpoint with service role key..."
+    # Expect HTTP 200/204/404; failures like connection refused or 401 indicate issues
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+        -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+        "${SUPABASE_URL}/rest/v1/") || HTTP_CODE="000"
+    if [ "${HTTP_CODE}" = "200" ] || [ "${HTTP_CODE}" = "204" ] || [ "${HTTP_CODE}" = "404" ]; then
+        echo -e "${GREEN}✓ Supabase REST reachable (HTTP ${HTTP_CODE})${NC}"
+        echo "Try querying a table with: /rest/v1/<table>?select=*"
+    else
+        echo -e "${RED}✗ Supabase REST unreachable (HTTP ${HTTP_CODE})${NC}"
+    fi
+    echo ""
+    read -p "Press Enter to continue..."
+}
+
 generate_openapi_supabase() {
     cd ${APP_DIR}
     node generate-actions.js supabase
@@ -809,6 +839,7 @@ while true; do
         18) test_s3_connection ;;
         19) change_supabase_key ;;
         29) change_supabase_url ;;
+        30) test_supabase_connection ;;
         20) generate_openapi_supabase ;;
         21) generate_openapi_s3 ;;
         22) generate_openapi_full ;;
