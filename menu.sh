@@ -1043,50 +1043,100 @@ while true; do
         36) test_create_file_logic ;;
         # ...existing code...
         # Fungsi: Test buat file ke S3
+        ## Fungsi: Test buat file ke S3
         test_create_file_logic() {
             echo -e "${CYAN}[TEST BUAT FILE KE S3]${NC}"
-            cd ${APP_DIR}
-            if ! npm ls @aws-sdk/client-s3 >/dev/null 2>&1; then
-                echo "Menginstall @aws-sdk/client-s3 ..."
-                npm i -s @aws-sdk/client-s3 >/dev/null 2>&1 || npm i -s @aws-sdk/client-s3
+            cd "${APP_DIR}" || return 1
+
+            # Install @aws-sdk/client-s3 jika belum ada
+            if [ ! -d "node_modules/@aws-sdk/client-s3" ]; then
+                echo -e "${YELLOW}Menginstall @aws-sdk/client-s3 ...${NC}"
+                npm i -s @aws-sdk/client-s3 >/dev/null 2>&1 || {
+                    echo -e "${RED}Gagal install @aws-sdk/client-s3${NC}"
+                    return 1
+                }
             fi
-            echo "Masukkan nama file (misal: test-gpt.txt):"
+
+            # Input nama file
+            echo -n "Masukkan nama file (contoh: test-gpt.txt): "
             read -r FILE_NAME
             if [ -z "$FILE_NAME" ]; then
                 echo -e "${RED}✗ Nama file tidak boleh kosong!${NC}"
-                return
+                return 1
             fi
-            # Upload file dummy ke S3
+
+            # Validasi env yang dibutuhkan
+            if [ -z "$S3_BUCKET" ]; then
+                echo -e "${RED}✗ Variabel S3_BUCKET belum di-set di .env!${NC}"
+                return 1
+            fi
+
+            echo -e "${YELLOW}Mengupload file dummy → s3://$S3_BUCKET/$FILE_NAME${NC}"
+
+            # Upload menggunakan Node.js (mengirim nama file lewat argument, lebih aman!)
             node -e "
-            const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-            require('dotenv').config();
-            const endpoint = process.env.S3_ENDPOINT;
-            const region = process.env.S3_REGION || 'us-east-1';
-            const bucket = process.env.S3_BUCKET;
-            const config = { region };
-            if (endpoint) config.endpoint = endpoint;
-            if (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
-                config.credentials = {
-                    accessKeyId: process.env.S3_ACCESS_KEY_ID,
-                    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+                const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+                require('dotenv').config();
+
+                const fileName = process.argv[1];
+                if (!fileName) {
+                    console.error('Nama file tidak diberikan');
+                    process.exit(1);
+                }
+
+                const endpoint = process.env.S3_ENDPOINT || undefined;
+                const region = process.env.S3_REGION || 'auto';
+                const bucket = process.env.S3_BUCKET;
+
+                const config = { region };
+                if (endpoint) config.endpoint = endpoint;
+
+                // Credentials (wajib ada salah satu: env var atau IAM role)
+                if (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
+                    config.credentials = {
+                        accessKeyId: process.env.S3_ACCESS_KEY_ID,
+                        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
+                    };
+                }
+
+                const client = new S3Client(config);
+
+                const params = {
+                    Bucket: bucket,
+                    Key: fileName,
+                    Body: 'Hello dari GPT! Ini adalah file test upload ke S3.\nWaktu: ' + new Date().toISOString(),
+                    ContentType: 'text/plain',
+                    Metadata: { 'uploaded-by': 'test-script' }
                 };
-            }
-            const s3 = new S3Client(config);
-            const params = {
-                Bucket: bucket,
-                Key: process.env.__FILENAME,
-                Body: 'Hello dari GPT!',
-                ContentType: 'text/plain',
-            };
-            s3.send(new PutObjectCommand(params))
-                .then(() => {
-                    console.log('✅ File berhasil diupload ke S3:', params.Key);
-                })
-                .catch(err => {
-                    console.log('❌ Gagal upload:', err.name || err.code, '-', err.message);
-                });
-            " __FILENAME="$FILE_NAME"
+
+                (async () => {
+                    try {
+                        const command = new PutObjectCommand(params);
+                        await client.send(command);
+                        console.log('\n${GREEN}✓ Berhasil! File terupload:${NC}');
+                        console.log('   Bucket : ' + bucket);
+                        console.log('   Key    : ' + fileName);
+                        console.log('   URL    : https://' + bucket + (endpoint?.includes('cloudflare') ? '.r2.cloudflarestorage.com' : '') + '/' + encodeURIComponent(fileName));
+                    } catch (err) {
+                        console.error('\n${RED}✗ Gagal upload file ke S3!${NC}');
+                        console.error('   Error  : ' + (err.name || 'Unknown'));
+                        console.error('   Pesan  : ' + (err.message || err));
+                        if (err.$metadata) {
+                            console.error('   HTTP   : ' + err.$metadata.httpStatusCode);
+                        }
+                        process.exit(1);
+                    }
+                })();
+            " "$FILE_NAME"
+
+            local exit_code=$?
             echo ""
+            if [ $exit_code -eq 0 ]; then
+                echo -e "${GREEN}✓ Test upload berhasil!${NC}"
+            else
+                echo -e "${RED}✗ Test upload gagal (lihat error di atas)${NC}"
+            fi
+
             read -p "Tekan Enter untuk melanjutkan..."
         }
         0) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
@@ -1105,11 +1155,11 @@ done
 # Fungsi baru: Overwrite SSL manual
 overwrite_ssl() {
     echo -e "${YELLOW}[OVERWRITE SSL]${NC}"
-    mkdir -p ${PROJECT_ROOT}/ssl
+    mkdir -p "${PROJECT_ROOT}/ssl"
     echo "Paste new fullchain.pem (end with Ctrl+D):"
-    cat > ${PROJECT_ROOT}/ssl/fullchain.pem
+    cat > "${PROJECT_ROOT}/ssl/fullchain.pem"
     echo "Paste new privkey.pem (end with Ctrl+D):"
-    cat > ${PROJECT_ROOT}/ssl/privkey.pem
+    cat > "${PROJECT_ROOT}/ssl/privkey.pem"
     echo -e "Testing Nginx config..."
     nginx -t && systemctl restart nginx && echo -e "${GREEN}✓ SSL files overwritten & Nginx restarted!${NC}" || echo -e "${RED}✗ Error: SSL or Nginx config invalid!${NC}"
 }
@@ -1117,9 +1167,9 @@ overwrite_ssl() {
 # Fungsi baru: Overwrite SSL pakai Let's Encrypt
 overwrite_ssl_letsencrypt() {
     echo -e "${GREEN}[OVERWRITE SSL LET'S ENCRYPT]${NC}"
-    mkdir -p ${PROJECT_ROOT}/ssl
-    certbot certonly --nginx -d ${DOMAIN} --non-interactive --agree-tos -m admin@${DOMAIN} --deploy-hook "cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem ${PROJECT_ROOT}/ssl/fullchain.pem && cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem ${PROJECT_ROOT}/ssl/privkey.pem && nginx -t && systemctl restart nginx"
-    if [ -f "/opt/gpt/ssl/fullchain.pem" ] && [ -f "/opt/gpt/ssl/privkey.pem" ]; then
+    mkdir -p "${PROJECT_ROOT}/ssl"
+    certbot certonly --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "admin@${DOMAIN}" --deploy-hook "cp /etc/letsencrypt/live/${DOMAIN}/fullchain.pem \"${PROJECT_ROOT}/ssl/fullchain.pem\" && cp /etc/letsencrypt/live/${DOMAIN}/privkey.pem \"${PROJECT_ROOT}/ssl/privkey.pem\" && nginx -t && systemctl restart nginx"
+    if [ -f "${PROJECT_ROOT}/ssl/fullchain.pem" ] && [ -f "${PROJECT_ROOT}/ssl/privkey.pem" ]; then
         echo -e "${GREEN}✓ SSL Let's Encrypt copied & Nginx restarted!${NC}"
     else
         echo -e "${RED}✗ Error: SSL files not found/copy failed!${NC}"
