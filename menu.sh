@@ -258,22 +258,25 @@ HTML
     fi
     cat > ${NGINX_CONF} <<'NGINXCONF'
 server {
-    listen 80;
-    server_name files.bytrix.my.id;
-    root /opt/gpt/app/public;
-    index index.html;
-    # Allow access to .well-known explicitly
-    location /.well-known/ { allow all; }
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-    location /api/ {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
+    # Rainbow "GPT CRUD" header
+    echo -e "${RED}  █▀▀  █▀█  █▀▀    ${YELLOW} █▀▀  █▄█  █▀▄    ${GREEN} █▀▀  █░█  █▀▄    ${CYAN} GPT CRUD${NC}"
+    echo -e "${RED}  █▄▄  █▄█  █▄█    ${YELLOW} █▄▄  ▀█▀  █▄▀    ${GREEN} █▄█  █▄█  █▄▀${NC}"
+    echo -e "${BLUE}────────────────────────────────────────────────────────────────────────${NC}"
+    # Original ASCII banner with subtle color shifts
+    echo -e "${GREEN} /\$\$\$\$\$\$\$  /\$\$\$\$\$\$\$ /\$\$\$\$\$\$\$       /\$\$\$\$\$  /\$\$\$\$\$\$\$ /\$\$ /\$\$ /\$\$\$\$\$\$\$${NC}"
+    echo -e "${YELLOW}/\$\$__  \$\$|__  \$\$__/|__  \$\$__/      /\$\$__  \$\$|__  \$\$__/|__/|  \$\$__  \$\$${NC}"
+    echo -e "${MAGENTA}| \$\$  \\__/   | \$\$      | \$\$        | \$\$  \\ \$\$   | \$\$    /\$\$| \$\$ \\ \$\$${NC}"
+    echo -e "${BLUE} | \$\$ /\$\$\$\$  | \$\$\$\$\$\$/  | \$\$        | \$\$  | \$\$   | \$\$\$\$\$\$/| \$\$| \$\$ | \$\$${NC}"
+    echo -e "${CYAN} | \$\$|_  \$\$ | \$\$____/   | \$\$        | \$\$  | \$\$   | \$\$____/ | \$\$| \$\$ | \$\$${NC}"
+    echo -e "${GREEN}| \$\$  \\ \$\$ | \$\$        | \$\$        | \$\$  | \$\$   | \$\$      | \$\$| \$\$ | \$\$${NC}"
+    echo -e "${YELLOW}|  \$\$\$\$\$/ | \$\$\$\$\$\$ | \$\$        |  \$\$\$\$\$/   | \$\$      | \$\$|  \$\$\$\$\$/${NC}"
+    echo -e "${MAGENTA} \\______/  |________/|__/         \\______/    |__/      |__/ \\______${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${YELLOW}  Custom Actions Server – files.bytrix.my.id${NC}"
+    echo -e "${MAGENTA}  Bearer Token + Domain Verification + Supabase + S3${NC}"
+    echo -e "${BLUE}  Path: /opt/gpt${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════════════════${NC}"
+    echo ""
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
