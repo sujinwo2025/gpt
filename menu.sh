@@ -276,7 +276,24 @@ EOF
 update_from_github() {
     echo -e "${YELLOW}[UPDATE FROM GITHUB]${NC}"
     cd ${PROJECT_ROOT}
-    git pull
+    if [ -d ".git" ]; then
+        echo "Git repo detected. Fetching and resetting to origin/main..."
+        git fetch --all || true
+        # Try main first, fallback to master if needed
+        if git rev-parse --verify origin/main >/dev/null 2>&1; then
+            git reset --hard origin/main
+        elif git rev-parse --verify origin/master >/dev/null 2>&1; then
+            git reset --hard origin/master
+        else
+            echo -e "${RED}No origin/main or origin/master found. Running git pull as fallback.${NC}"
+            git pull || true
+        fi
+    else
+        echo "No git repo found. Cloning fresh from GitHub..."
+        mkdir -p ${PROJECT_ROOT}
+        git clone https://github.com/sujinwo2025/gpt.git ${PROJECT_ROOT}
+        cd ${PROJECT_ROOT}
+    fi
     cd ${APP_DIR}
     npm install
     
