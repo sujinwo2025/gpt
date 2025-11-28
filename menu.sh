@@ -365,6 +365,7 @@ EOF
 
 update_from_github() {
     echo -e "${YELLOW}[UPDATE FROM GITHUB]${NC}"
+    SKIP_PAUSE=1
     ensure_structure
     cd ${PROJECT_ROOT}
     if [ -d ".git" ]; then
@@ -821,6 +822,10 @@ while true; do
         *) echo -e "${RED}Invalid choice!${NC}"; sleep 1 ;;
     esac
     
-    echo ""
-    read -p "Press Enter to continue..."
+    if [ "${SKIP_PAUSE}" != "1" ]; then
+        echo ""
+        read -p "Press Enter to continue..."
+    else
+        unset SKIP_PAUSE
+    fi
 done
