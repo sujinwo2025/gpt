@@ -332,6 +332,109 @@ app.delete('/api/supabase/delete', async (req, res) => {
 });
 
 // ==========================================
+// SUPABASE STORAGE ENDPOINTS (Bucket-based)
+// ==========================================
+
+// List files in Supabase Storage bucket
+app.get('/api/supabase/storage/files', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(503).json({ error: 'Supabase not configured' });
+    }
+    const bucket = req.query.bucket || process.env.SUPABASE_BUCKET || 'public';
+    const prefix = req.query.prefix || '';
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
+    const sortColumn = req.query.sortBy || 'name';
+    const sortOrder = req.query.order || 'asc';
+
+    const { data, error } = await supabase
+      .storage
+      .from(bucket)
+      .list(prefix, { limit, offset, sortBy: { column: sortColumn, order: sortOrder } });
+
+    if (error) throw error;
+
+    res.json({ success: true, bucket, prefix, files: data || [] });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to list Supabase files', message: error.message });
+  }
+});
+
+// Upload to Supabase Storage bucket
+app.post('/api/supabase/storage/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(503).json({ error: 'Supabase not configured' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    const bucket = req.body.bucket || process.env.SUPABASE_BUCKET || 'public';
+    const key = req.body.key || req.file.originalname;
+    const { data, error } = await supabase
+      .storage
+      .from(bucket)
+      .upload(key, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+
+    if (error) throw error;
+
+    const { data: pub } = await supabase
+      .storage
+      .from(bucket)
+      .getPublicUrl(key);
+
+    res.json({ success: true, bucket, key, publicUrl: pub?.publicUrl || null });
+  } catch (error) {
+    res.status(500).json({ error: 'Supabase upload failed', message: error.message });
+  }
+});
+
+// Delete from Supabase Storage bucket
+app.delete('/api/supabase/storage/delete', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(503).json({ error: 'Supabase not configured' });
+    }
+    const bucket = req.body.bucket || process.env.SUPABASE_BUCKET || 'public';
+    const key = req.body.key;
+    if (!key) {
+      return res.status(400).json({ error: 'Key required' });
+    }
+    const { data, error } = await supabase
+      .storage
+      .from(bucket)
+      .remove([key]);
+
+    if (error) throw error;
+    res.json({ success: true, removed: data });
+  } catch (error) {
+    res.status(500).json({ error: 'Supabase delete failed', message: error.message });
+  }
+});
+
+// Get public URL for Supabase Storage object
+app.get('/api/supabase/storage/public-url', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(503).json({ error: 'Supabase not configured' });
+    }
+    const bucket = req.query.bucket || process.env.SUPABASE_BUCKET || 'public';
+    const key = req.query.key;
+    if (!key) {
+      return res.status(400).json({ error: 'Key required' });
+    }
+    const { data } = await supabase
+      .storage
+      .from(bucket)
+      .getPublicUrl(key);
+    res.json({ success: true, publicUrl: data?.publicUrl || null });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get public URL', message: error.message });
+  }
+});
+
+// ==========================================
 // S3 ENDPOINTS
 // ==========================================
 
@@ -521,6 +624,58 @@ app.delete('/api/s3/delete', async (req, res) => {
       error: 'Delete failed',
       message: error.message
     });
+  }
+});
+
+// Rename (copy + delete) S3 object
+app.post('/api/s3/rename', async (req, res) => {
+  try {
+    if (!s3) {
+      return res.status(503).json({ error: 'S3 not configured' });
+    }
+    const bucket = req.body.bucket || process.env.S3_BUCKET;
+    const fromKey = req.body.fromKey;
+    const toKey = req.body.toKey;
+    if (!bucket || !fromKey || !toKey) {
+      return res.status(400).json({ error: 'bucket, fromKey, toKey required' });
+    }
+    // Copy
+    await s3.send(new (require('@aws-sdk/client-s3').CopyObjectCommand)({
+      Bucket: bucket,
+      CopySource: `/${bucket}/${fromKey}`,
+      Key: toKey,
+      ACL: 'private'
+    }));
+    // Delete old
+    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: fromKey }));
+    res.json({ success: true, bucket, fromKey, toKey });
+  } catch (error) {
+    res.status(500).json({ error: 'Rename failed', message: error.message });
+  }
+});
+
+// Pre-signed GET/PUT URL for S3 (simple editing workflows)
+app.get('/api/s3/presign', async (req, res) => {
+  try {
+    if (!s3) {
+      return res.status(503).json({ error: 'S3 not configured' });
+    }
+    const bucket = req.query.bucket || process.env.S3_BUCKET;
+    const key = req.query.key;
+    const mode = req.query.mode || 'get';
+    const expires = parseInt(req.query.expires) || 900; // 15 minutes
+    if (!bucket || !key) {
+      return res.status(400).json({ error: 'bucket and key required' });
+    }
+    const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+    const { GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+    const command = mode === 'put'
+      ? new PutObjectCommand({ Bucket: bucket, Key: key })
+      : new GetObjectCommand({ Bucket: bucket, Key: key });
+    const url = await getSignedUrl(s3, command, { expiresIn: expires });
+    res.json({ success: true, url, mode, expires });
+  } catch (error) {
+    res.status(500).json({ error: 'Presign failed', message: error.message });
   }
 });
 
