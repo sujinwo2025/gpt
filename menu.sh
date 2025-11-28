@@ -120,6 +120,21 @@ banner() {
     echo ""
 }
 
+# Auto push changes to GitHub if any modifications are present
+auto_push() {
+    cd "${PROJECT_ROOT}" || return
+    if [ -d .git ]; then
+        # Detect changes
+        if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            COMMIT_MSG="chore(auto): auto-push from menu on $(date +'%Y-%m-%d %H:%M:%S')"
+            git commit -m "$COMMIT_MSG" || true
+            git push || true
+            echo -e "${GREEN}✓ Auto-pushed changes to GitHub${NC}"
+        fi
+    fi
+}
+
 show_menu() {
     banner
     echo -e "${CYAN}[ INSTALLATION ]${NC}"
@@ -844,6 +859,9 @@ while true; do
         0) echo -e "${GREEN}Goodbye!${NC}"; exit 0 ;;
         *) echo -e "${RED}Invalid choice!${NC}"; sleep 1 ;;
     esac
+
+    # Auto-push any changes made by the selected action
+    auto_push
     
     if [ "${SKIP_PAUSE}" != "1" ]; then
         echo ""
