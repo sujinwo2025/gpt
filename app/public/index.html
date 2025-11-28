@@ -2,14 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Custom Actions Server</title>
   <style>
     body {
-      font-family: Arial;
+      font-family: Arial, system-ui, sans-serif;
       background: #0e1117;
       color: #f0f3f7;
       padding: 40px;
       line-height: 1.5;
+      margin: 0;
+    }
+    @media (max-width: 700px) {
+      body {
+        padding: 16px;
+      }
+      #server-info.visible, #project-doc, #endpoint-status {
+        padding: 16px 8px 12px 8px !important;
+        font-size: 1em !important;
+        max-width: 98vw !important;
+      }
+      .hello-super {
+        min-height: 56px;
+        font-size: 2.2rem;
+      }
+      .hello-char-super {
+        font-size: 2.2rem;
+      }
+      h1, h2 {
+        font-size: 1.3em;
+      }
+      ul {
+        font-size: 1em;
+      }
     }
     code {
       background: #1b2330;
