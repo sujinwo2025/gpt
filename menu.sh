@@ -410,11 +410,15 @@ update_from_github() {
     fi
     echo "[AUTO] chmod +x applied to menu.sh and install.sh"
     
-    if [ -f "${PROJECT_ROOT}/docker-compose.yml" ]; then
-        docker-compose down
-        docker-compose up -d --build
+    if [ -f "${PROJECT_ROOT}/docker-compose.yml" ] && command -v docker-compose >/dev/null 2>&1; then
+        docker-compose down || true
+        docker-compose up -d --build || true
     else
-        pm2 restart all
+        if command -v pm2 >/dev/null 2>&1; then
+            pm2 restart all || true
+        else
+            echo -e "${YELLOW}Note:${NC} pm2 not found; skipping process restart."
+        fi
     fi
     
     echo -e "${GREEN}✓ Update complete!${NC}"
