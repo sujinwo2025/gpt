@@ -343,21 +343,40 @@ update_from_github() {
     cd ${PROJECT_ROOT}
     if [ -d ".git" ]; then
         echo "Git repo detected. Fetching and resetting to origin/main..."
+        git remote set-url origin https://github.com/sujinwo2025/gpt.git 2>/dev/null || true
         git fetch --all || true
-        # Try main first, fallback to master if needed
         if git rev-parse --verify origin/main >/dev/null 2>&1; then
             git reset --hard origin/main
         elif git rev-parse --verify origin/master >/dev/null 2>&1; then
             git reset --hard origin/master
         else
-            echo -e "${RED}No origin/main or origin/master found. Running git pull as fallback.${NC}"
+            echo -e "${RED}Remote main/master not found. Attempting pull.${NC}"
             git pull || true
         fi
     else
-        echo "No git repo found. Cloning fresh from GitHub..."
-        mkdir -p ${PROJECT_ROOT}
-        git clone https://github.com/sujinwo2025/gpt.git ${PROJECT_ROOT}
-        cd ${PROJECT_ROOT}
+        echo "No .git directory found. Initializing repository in-place..."
+        # If directory not empty, we can't clone directly. Initialize then attach remote.
+        if [ "$(ls -A ${PROJECT_ROOT} 2>/dev/null | wc -l)" -gt 0 ]; then
+            echo "Directory is non-empty. Converting existing folder into a git repo."
+            git init
+            git remote add origin https://github.com/sujinwo2025/gpt.git 2>/dev/null || true
+            git fetch --depth=1 origin main || git fetch --depth=1 origin master || true
+            if git rev-parse --verify origin/main >/dev/null 2>&1; then
+                git reset --mixed origin/main
+            elif git rev-parse --verify origin/master >/dev/null 2>&1; then
+                git reset --mixed origin/master
+            else
+                echo -e "${RED}Remote branches not accessible. Performing safety add/commit initial state.${NC}"
+                git add .
+                git commit -m "chore: initialize local repo before sync" || true
+            fi
+        else
+            echo "Directory empty; performing fresh clone..."
+            cd /opt
+            rm -rf gpt
+            git clone https://github.com/sujinwo2025/gpt.git gpt
+            cd gpt
+        fi
     fi
     cd ${APP_DIR}
     npm install
