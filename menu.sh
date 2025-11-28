@@ -234,19 +234,23 @@ EOF
     node generate-actions.js full
     
     # Setup Nginx
+    # Ensure basic index.html to avoid 403 on root
+    if [ ! -f "/opt/gpt/app/public/index.html" ]; then
+        cat > /opt/gpt/app/public/index.html <<'HTML'
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Custom Actions Server</title><style>body{font-family:Arial;background:#0e1117;color:#f0f3f7;padding:40px;line-height:1.5}code{background:#1b2330;padding:4px 6px;border-radius:4px}a{color:#4ea1ff;text-decoration:none}a:hover{text-decoration:underline}footer{margin-top:40px;font-size:12px;opacity:.6}</style></head><body><h1>Custom Actions Server</h1><p>Domain verification file: <code>/.well-known/openai.json</code></p><p>OpenAPI spec: <a href="/actions.json">/actions.json</a></p><p>API base: <code>/api/...</code> (Bearer token required)</p><footer>Generated automatically at install time.</footer></body></html>
+HTML
+    fi
     cat > ${NGINX_CONF} <<'NGINXCONF'
 server {
     listen 80;
     server_name files.bytrix.my.id;
-    
     root /opt/gpt/app/public;
-    
-    # Static files (including .well-known)
+    index index.html;
+    # Allow access to .well-known explicitly
+    location /.well-known/ { allow all; }
     location / {
-        try_files $uri $uri/ =404;
+        try_files $uri $uri/ /index.html;
     }
-    
-    # API endpoints
     location /api/ {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -258,8 +262,6 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-    
-    # OpenAPI JSON
     location /actions.json {
         proxy_pass http://localhost:3000/actions.json;
         proxy_set_header Host $host;
@@ -522,26 +524,27 @@ setup_custom_ssl() {
     cat > ${PROJECT_ROOT}/ssl/privkey.pem
     
     # Update Nginx
+    # Preserve existing index.html or create if missing
+    if [ ! -f "/opt/gpt/app/public/index.html" ]; then
+        echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Custom Actions Server</title></head><body><h1>Custom Actions Server</h1></body></html>' > /opt/gpt/app/public/index.html
+    fi
     cat > ${NGINX_CONF} <<'NGINXCONF'
 server {
     listen 80;
     server_name files.bytrix.my.id;
     return 301 https://$server_name$request_uri;
 }
-
 server {
     listen 443 ssl http2;
     server_name files.bytrix.my.id;
-    
     ssl_certificate /opt/gpt/ssl/fullchain.pem;
     ssl_certificate_key /opt/gpt/ssl/privkey.pem;
-    
     root /opt/gpt/app/public;
-    
+    index index.html;
+    location /.well-known/ { allow all; }
     location / {
-        try_files $uri $uri/ =404;
+        try_files $uri $uri/ /index.html;
     }
-    
     location /api/ {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -550,7 +553,6 @@ server {
         proxy_set_header Host $host;
         proxy_cache_bypass $http_upgrade;
     }
-    
     location /actions.json {
         proxy_pass http://localhost:3000/actions.json;
     }
