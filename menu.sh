@@ -86,6 +86,14 @@ ensure_structure() {
 EOF
     fi
 
+        # Ensure privacy policy page exists
+        if [ ! -f "/opt/gpt/app/public/privacy-policy.html" ]; then
+                echo "[AUTO] Creating privacy policy page"
+                cat > /opt/gpt/app/public/privacy-policy.html <<'HTML'
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Privacy Policy</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:40px;line-height:1.6;color:#0f172a}h1{margin-bottom:8px}small{color:#64748b}code{background:#f1f5f9;padding:2px 6px;border-radius:4px}a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}</style><meta name="robots" content="noindex"><meta name="description" content="Privacy Policy for files.bytrix.my.id"></head><body><h1>Privacy Policy</h1><small>files.bytrix.my.id</small><p>Halaman ini menjelaskan bagaimana server ini menangani data. Sistem ini menggunakan Bearer Token untuk autentikasi API, dan tidak menyimpan data sensitif pengguna di luar kebutuhan operasional.</p><h2>Data yang Diproses</h2><ul><li>Permintaan API (endpoint, waktu, dan status) untuk keperluan log.</li><li>Konfigurasi server (mis. S3/Supabase) disimpan di berkas <code>.env</code> pada server.</li></ul><h2>Keamanan</h2><ul><li>Autentikasi via <code>Authorization: Bearer &lt;token&gt;</code>.</li><li>Reverse proxy Nginx dan rate-limit di backend.</li></ul><p>Hubungi admin jika ada pertanyaan.</p><p><a href="/">Kembali ke beranda</a></p><footer><small>&copy; files.bytrix.my.id</small></footer></body></html>
+HTML
+        fi
+
     # Inform user about structure
     echo "[AUTO] Structure ensured. PROJECT_ROOT=${PROJECT_ROOT} APP_DIR=${APP_DIR}"
 }
@@ -572,6 +580,14 @@ server {
     root /opt/gpt/app/public;
     index index.html;
     location /.well-known/ { allow all; }
+    # Privacy Policy routes (space-friendly)
+    location = /privacy%20policy { try_files /privacy-policy.html =404; }
+    location = /privacy-policy { try_files /privacy-policy.html =404; }
+    location = /privacy { try_files /privacy-policy.html =404; }
+    # Privacy Policy routes (space-friendly)
+    location = /privacy%20policy { try_files /privacy-policy.html =404; }
+    location = /privacy-policy { try_files /privacy-policy.html =404; }
+    location = /privacy { try_files /privacy-policy.html =404; }
     location / {
         try_files $uri $uri/ /index.html;
     }
