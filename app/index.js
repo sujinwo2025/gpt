@@ -19,6 +19,13 @@ const multer = require('multer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Minimal helper to build path-style S3 URL (may require public ACL or signed URL to access)
+const buildS3Url = (endpoint, bucket, key) => {
+  const base = (endpoint || 'https://s3.amazonaws.com').replace(/\/$/, '');
+  const safeKey = String(key || '').replace(/^\//, '');
+  return `${base}/${bucket}/${safeKey}`;
+};
+
 // ==========================================
 // BEARER TOKEN MIDDLEWARE (OpenAI Required)
 // ==========================================
@@ -427,7 +434,8 @@ app.post('/api/s3/upload', upload.single('file'), async (req, res) => {
       file: {
         bucket,
         key,
-        etag: result.ETag || null
+        etag: result.ETag || null,
+        url: buildS3Url(process.env.S3_ENDPOINT, bucket, key)
       }
     });
   } catch (error) {
