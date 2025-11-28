@@ -453,6 +453,8 @@ update_from_github() {
     fi
 
     echo -e "${GREEN}✓ Update complete (git pull/reset + npm install + restart, .env preserved)!${NC}"
+        # Auto-restart menu.sh after update for seamless UX
+        exec "$0"
 }
 
 restart_services() {
