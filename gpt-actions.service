@@ -1,0 +1,32 @@
+[Unit]
+Description=GPT Custom Actions Server
+Documentation=https://github.com/your-repo/gpt-custom-actions
+After=network.target
+
+[Service]
+Type=forking
+User=root
+WorkingDirectory=/opt/gpt/app
+Environment=NODE_ENV=production
+Environment=PATH=/usr/bin:/usr/local/bin
+
+# PM2 commands
+ExecStart=/usr/bin/pm2 start ecosystem.config.js
+ExecReload=/usr/bin/pm2 reload ecosystem.config.js
+ExecStop=/usr/bin/pm2 stop ecosystem.config.js
+
+# Restart policy
+Restart=on-failure
+RestartSec=10s
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gpt-actions
+
+[Install]
+WantedBy=multi-user.target
