@@ -1,5 +1,26 @@
 # GPT Custom Actions Server - FINAL VERSION
 
+## 🚦 Proxy Otomatis & Status Indikator
+
+Server ini mendukung fallback otomatis ke **Caddy** jika **Nginx** gagal. Semua proses instalasi, konfigurasi SSL, dan aktivasi Caddy dilakukan otomatis tanpa intervensi manual.
+
+Di menu utama, status service akan tampil:
+
+```
+Status: Nginx 🟢 | Caddy 🔴 | Host 🟢 (192.168.x.x)
+```
+
+🟢 = aktif, 🔴 = tidak aktif
+
+Anda bisa melakukan **switch proxy** antara Nginx dan Caddy melalui menu:
+
+```
+[ PROXY SWITCH ]
+37) Switch Proxy: Nginx <-> Caddy
+```
+
+Pilih proxy yang ingin diaktifkan, sistem akan otomatis menghentikan dan mengaktifkan service sesuai pilihan Anda.
+
 Production-ready GPT Custom Actions server dengan:
 - ✅ **Bearer Token Authentication** (OpenAI requirement)
 - ✅ **Domain Verification Endpoint** untuk OpenAI
@@ -94,11 +115,26 @@ Generate ulang token:
 8) Manual Bearer Token
 
 [ SSL MANAGEMENT ]
-9-12) Let's Encrypt / Custom SSL
+9-14) Let's Encrypt / Custom SSL
 
 [ S3 EXTERNAL ]
-13-18) S3 configuration
+15-22) S3 configuration & test
 
+[ SUPABASE STORAGE ]
+23-27) Supabase config & test
+
+[ OPENAPI GENERATOR ]
+28-30) Generate OpenAPI
+
+[ DOCKER CONTROL ]
+31-33) Docker management
+
+[ MAINTENANCE & TESTING ]
+34-36) Endpoint test, backup, uninstall
+
+[ PROXY SWITCH ]
+37) Switch Proxy: Nginx <-> Caddy
+```
 [ SUPABASE ]
 19) Change Supabase key
 

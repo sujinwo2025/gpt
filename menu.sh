@@ -1,3 +1,42 @@
+# Fungsi: Switch Proxy antara Nginx dan Caddy
+switch_proxy() {
+    echo -e "${CYAN}[SWITCH PROXY]${NC}"
+    STATUS_NGINX="$(systemctl is-active nginx 2>/dev/null)"
+    STATUS_CADDY="$(systemctl is-active caddy 2>/dev/null)"
+    echo "Status saat ini:"
+    echo " - Nginx : $STATUS_NGINX"
+    echo " - Caddy : $STATUS_CADDY"
+    echo "Pilih proxy yang ingin diaktifkan:"
+    echo "1) Nginx"
+    echo "2) Caddy"
+    read -p "Pilihan [1/2]: " PILIH_PROXY
+    if [ "$PILIH_PROXY" = "1" ]; then
+        echo "Menonaktifkan Caddy (stop), mengaktifkan Nginx..."
+        systemctl stop caddy 2>/dev/null || true
+        systemctl start nginx 2>/dev/null || true
+        sleep 2
+        if systemctl is-active --quiet nginx; then
+            echo -e "${GREEN}✓ Nginx sudah aktif!${NC}"
+            echo "Caddy hanya di-stop, bisa diaktifkan lagi kapan saja."
+        else
+            echo -e "${RED}✗ Gagal mengaktifkan Nginx!${NC}"
+        fi
+    elif [ "$PILIH_PROXY" = "2" ]; then
+        echo "Menonaktifkan Nginx (stop), mengaktifkan Caddy..."
+        systemctl stop nginx 2>/dev/null || true
+        systemctl start caddy 2>/dev/null || true
+        sleep 2
+        if systemctl is-active --quiet caddy; then
+            echo -e "${GREEN}✓ Caddy sudah aktif!${NC}"
+            echo "Nginx hanya di-stop, bisa diaktifkan lagi kapan saja."
+        else
+            echo -e "${RED}✗ Gagal mengaktifkan Caddy!${NC}"
+        fi
+    else
+        echo "Pilihan tidak valid."
+    fi
+    read -p "Tekan Enter untuk kembali ke menu..."
+}
 #!/bin/bash
 
 # ========================================
@@ -99,6 +138,60 @@ HTML
 }
 
 # Colors
+## Fungsi: Install dan aktifkan Caddy otomatis jika Nginx gagal
+install_caddy_otomatis() {
+    echo -e "${YELLOW}[CADDY FALLBACK OTOMATIS]${NC}"
+    # Install Caddy jika belum ada
+    if ! command -v caddy >/dev/null 2>&1; then
+        echo "Menginstall Caddy..."
+        apt update && apt install -y debian-keyring debian-archive-keyring curl
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | apt-key add -
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+        apt update && apt install -y caddy
+    fi
+
+    # Reuse SSL dari Nginx jika ada
+    SSL_PATH="/opt/gpt/ssl"
+    if [ -f "$SSL_PATH/fullchain.pem" ] && [ -f "$SSL_PATH/privkey.pem" ]; then
+        echo "SSL ditemukan, akan digunakan untuk Caddy."
+    else
+        echo "SSL tidak ditemukan, Caddy akan berjalan tanpa SSL."
+    fi
+
+    # Buat konfigurasi Caddy
+    CADDYFILE="/etc/caddy/Caddyfile"
+    DOMAIN_CADDY="${DOMAIN}"
+    cat > "$CADDYFILE" <<EOF
+${DOMAIN_CADDY} {
+    root * /opt/gpt/app/public
+    encode gzip
+    file_server
+    @wellknown path /.well-known/*
+    handle @wellknown {
+        file_server
+    }
+    @api path /api/*
+    reverse_proxy @api localhost:3000
+    @actions path /actions.json
+    reverse_proxy @actions localhost:3000
+EOF
+    # Tambahkan SSL jika ada
+    if [ -f "$SSL_PATH/fullchain.pem" ] && [ -f "$SSL_PATH/privkey.pem" ]; then
+        echo "    tls $SSL_PATH/fullchain.pem $SSL_PATH/privkey.pem" >> "$CADDYFILE"
+    else
+        echo "    tls internal" >> "$CADDYFILE"
+    fi
+    echo "}" >> "$CADDYFILE"
+
+    # Restart Caddy
+    systemctl restart caddy
+    sleep 2
+    if systemctl is-active --quiet caddy; then
+        echo -e "${GREEN}✓ Caddy sudah online dan aktif sebagai fallback!${NC}"
+    else
+        echo -e "${RED}✗ Gagal mengaktifkan Caddy!${NC}"
+    fi
+}
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -129,7 +222,17 @@ banner() {
 
 show_menu() {
     banner
-    echo -e "${CYAN}[ INSTALL & UPDATE ]${NC}"
+    # Status indikator
+    STATUS_NGINX="$(systemctl is-active nginx 2>/dev/null)"
+    STATUS_CADDY="$(systemctl is-active caddy 2>/dev/null)"
+    STATUS_HOST="$(hostname -I | awk '{print $1}')"
+    ICON_NGINX="${RED}🔴${NC}"; [ "$STATUS_NGINX" = "active" ] && ICON_NGINX="${GREEN}🟢${NC}"
+    ICON_CADDY="${RED}🔴${NC}"; [ "$STATUS_CADDY" = "active" ] && ICON_CADDY="${GREEN}🟢${NC}"
+    ICON_HOST="${GREEN}🟢${NC}"
+    echo -e "Status: Nginx $ICON_NGINX  |  Caddy $ICON_CADDY  |  Host $ICON_HOST ($STATUS_HOST)"
+    echo "-------------------------------------------------------------"
+    echo -e "${CYAN}[ PROXY SWITCH ]${NC}"
+    echo "37) Switch Proxy: Nginx <-> Caddy"
     echo " 1)  Install pertama kali (Native — PM2 + Nginx)"
     echo " 2)  Install pertama kali (Docker-Compose mode)"
     echo " 3)  Update dari GitHub + rebuild + restart"
@@ -471,8 +574,14 @@ restart_services() {
     else
         pm2 restart all
     fi
-    
+
+    # Restart Nginx, jika gagal aktifkan Caddy otomatis
     systemctl restart nginx 2>/dev/null || true
+    sleep 2
+    if ! systemctl is-active --quiet nginx; then
+        echo -e "${RED}Nginx gagal, mengaktifkan Caddy sebagai fallback...${NC}"
+        install_caddy_otomatis
+    fi
     echo -e "${GREEN}✓ Services restarted!${NC}"
 }
 
@@ -1121,29 +1230,31 @@ while true; do
         10) setup_custom_ssl ;;
         11) setup_custom_ssl ;;
         12) setup_letsencrypt ;;
-        13) change_s3_endpoint ;;
-        14) change_s3_access_key ;;
-        15) change_s3_secret_key ;;
-        16) change_s3_region ;;
-        17) change_s3_bucket ;;
-        18) test_s3_connection ;;
-        33) test_s3_list_objects ;;
-        19) change_supabase_key ;;
-        29) change_supabase_url ;;
-        30) test_supabase_connection ;;
-        31) change_supabase_bucket ;;
-        32) test_supabase_storage ;;
-        20) generate_openapi_supabase ;;
-        21) generate_openapi_s3 ;;
-        22) generate_openapi_full ;;
-        23) docker_start ;;
-        24) docker_stop ;;
-        25) docker_rebuild ;;
-        26) test_all_endpoints ;;
-        27) backup_all ;;
-        28) uninstall_all ;;
-        34) overwrite_ssl ;;
-        35) overwrite_ssl_letsencrypt ;;
-        36) test_create_file_logic ;;
+        13) overwrite_ssl ;;
+        14) overwrite_ssl_letsencrypt ;;
+        15) change_s3_endpoint ;;
+        16) change_s3_access_key ;;
+        17) change_s3_secret_key ;;
+        18) change_s3_region ;;
+        19) change_s3_bucket ;;
+        20) test_s3_connection ;;
+        21) test_s3_list_objects ;;
+        22) test_create_file_logic ;;
+        23) change_supabase_key ;;
+        24) change_supabase_url ;;
+        25) test_supabase_connection ;;
+        26) change_supabase_bucket ;;
+        27) test_supabase_storage ;;
+        28) generate_openapi_supabase ;;
+        29) generate_openapi_s3 ;;
+        30) generate_openapi_full ;;
+        31) docker_start ;;
+        32) docker_stop ;;
+        33) docker_rebuild ;;
+        34) test_all_endpoints ;;
+        35) backup_all ;;
+        36) uninstall_all ;;
+        37) switch_proxy ;;
+        0) exit 0 ;;
         esac
     done

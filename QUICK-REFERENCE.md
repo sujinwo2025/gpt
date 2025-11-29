@@ -1,5 +1,21 @@
 # GPT Custom Actions Server - Quick Reference
 
+## 🚦 Proxy Otomatis & Status Indikator
+
+Status Nginx, Caddy, dan Host akan tampil di menu utama:
+```
+Status: Nginx 🟢 | Caddy 🔴 | Host 🟢 (192.168.x.x)
+```
+🟢 = aktif, 🔴 = tidak aktif
+
+### Switch Proxy
+Untuk mengganti proxy antara Nginx dan Caddy:
+```bash
+./menu.sh
+# Pilih: 37) Switch Proxy: Nginx <-> Caddy
+```
+Ikuti instruksi di layar untuk memilih proxy yang ingin diaktifkan.
+
 ## 🚀 Quick Start Commands
 
 ### Native Installation
