@@ -1,3 +1,4 @@
+#!/bin/bash
 # Fungsi: Switch Proxy antara Nginx dan Caddy
 switch_proxy() {
     echo -e "${CYAN}[SWITCH PROXY]${NC}"
@@ -37,8 +38,6 @@ switch_proxy() {
     fi
     read -p "Tekan Enter untuk kembali ke menu..."
 }
-#!/bin/bash
-
 # ========================================
 # GPT Custom Actions Server - FINAL VERSION
 # Bearer Token + Domain Verification + S3 + Supabase
