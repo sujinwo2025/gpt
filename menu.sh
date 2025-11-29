@@ -1167,7 +1167,6 @@ NODEJS
 while true; do
     show_menu
     read -r choice
-    
     case $choice in
         1) install_native ;;
         2) install_docker ;;
@@ -1206,5 +1205,5 @@ while true; do
         35) backup_all ;;
         36) uninstall_all ;;
         0) exit 0 ;;
-        esac
-    done
+    esac
+done
