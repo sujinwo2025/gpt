@@ -506,9 +506,9 @@ update_from_github() {
             git remote add origin https://github.com/sujinwo2025/gpt.git 2>/dev/null || true
             git fetch --depth=1 origin main || git fetch --depth=1 origin master || true
             if git rev-parse --verify origin/main >/dev/null 2>&1; then
-                git reset --mixed origin/main
+                git reset --hard origin/main
             elif git rev-parse --verify origin/master >/dev/null 2>&1; then
-                git reset --mixed origin/master
+                git reset --hard origin/master
             else
                 echo -e "${RED}Remote branches not accessible. Performing safety add/commit initial state.${NC}"
                 git add .
@@ -559,9 +559,9 @@ update_from_github() {
     echo -e "${GREEN}✓ Update complete (git pull/reset + npm install + restart, .env preserved)!${NC}"
     # Auto-restart menu.sh after update for seamless UX
     if [ -f "${PROJECT_ROOT}/menu.sh" ]; then
-        exec "${PROJECT_ROOT}/menu.sh"
+        bash "${PROJECT_ROOT}/menu.sh"
     elif [ -f "$0" ]; then
-        exec "$0"
+        bash "$0"
     else
         echo -e "${RED}Gagal auto-restart menu.sh: file tidak ditemukan!${NC}"
     fi
@@ -1221,7 +1221,7 @@ while true; do
     case $choice in
         1) install_native ;;
         2) install_docker ;;
-        3) update_from_github ; SKIP_PAUSE=1 ;;
+        3) update_from_github ;;
         4) restart_services ;;
         5) show_logs ;;
         6) regenerate_bearer_token ;;
