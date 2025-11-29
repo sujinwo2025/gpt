@@ -328,22 +328,34 @@ EOF
 HTML
     fi
     cat > ${NGINX_CONF} <<'NGINXCONF'
-banner() {
-    # Small, colorful banner
-    echo -e "${RED}G${YELLOW}P${GREEN}T${CYAN} ${MAGENTA}C${BLUE}R${YELLOW}U${GREEN}D${NC}"
-    echo -e "${CYAN}Custom Actions • Bearer • Domain • Supabase • S3${NC}"
-    echo -e "${BLUE}/opt/gpt • files.bytrix.my.id${NC}"
-    echo ""
+server {
+    listen 80;
+    server_name files.bytrix.my.id;
+    return 301 https://$server_name$request_uri;
 }
-    echo -e "${CYAN}════════════════════════════════════════════════════════════════════════${NC}"
-    echo ""
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+server {
+    listen 443 ssl http2;
+    server_name files.bytrix.my.id;
+    ssl_certificate /opt/gpt/ssl/fullchain.pem;
+    ssl_certificate_key /opt/gpt/ssl/privkey.pem;
+    root /opt/gpt/app/public;
+    index index.html;
+    location /.well-known/ { allow all; }
+    location = /privacy-policy { try_files /privacy-policy.html =404; }
+    location = /privacy { try_files /privacy-policy.html =404; }
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    location /api/ {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
     }
     location /actions.json {
         proxy_pass http://localhost:3000/actions.json;
-        proxy_set_header Host $host;
     }
 }
 NGINXCONF
@@ -520,18 +532,30 @@ update_from_github() {
 restart_services() {
     echo -e "${YELLOW}[RESTART SERVICES]${NC}"
     
-    if docker ps > /dev/null 2>&1 && docker ps | grep -q gpt; then
+    if command -v docker-compose >/dev/null 2>&1 && docker-compose ps | grep -q gpt; then
         docker-compose -f ${PROJECT_ROOT}/docker-compose.yml restart
-    else
+    elif command -v pm2 >/dev/null 2>&1; then
         pm2 restart all
+    else
+        echo -e "${YELLOW}Note:${NC} Neither Docker nor PM2 found; skipping service restart."
     fi
 
     # Restart Nginx, jika gagal aktifkan Caddy otomatis
-    systemctl restart nginx 2>/dev/null || true
-    sleep 2
-    if ! systemctl is-active --quiet nginx; then
-        echo -e "${RED}Nginx gagal, mengaktifkan Caddy sebagai fallback...${NC}"
-        install_caddy_otomatis
+    if command -v nginx >/dev/null 2>&1 && command -v systemctl >/dev/null 2>&1; then
+        systemctl restart nginx 2>/dev/null || true
+        sleep 2
+        if ! systemctl is-active --quiet nginx; then
+            echo -e "${RED}Nginx gagal restart.${NC}"
+            echo -n "Aktifkan Caddy sebagai fallback? (yes/no): "
+            read -r FALLBACK_CONFIRM
+            if [ "$FALLBACK_CONFIRM" = "yes" ]; then
+                install_caddy_otomatis
+            else
+                echo -e "${YELLOW}Caddy fallback dibatalkan oleh user.${NC}"
+            fi
+        fi
+    else
+        echo -e "${YELLOW}Note:${NC} Nginx/systemctl not found; skipping Nginx restart."
     fi
     echo -e "${GREEN}✓ Services restarted!${NC}"
 }
@@ -539,10 +563,12 @@ restart_services() {
 show_logs() {
     echo -e "${CYAN}[LOGS REAL-TIME]${NC}"
     
-    if docker ps > /dev/null 2>&1 && docker ps | grep -q gpt; then
+    if command -v docker-compose >/dev/null 2>&1 && docker-compose ps | grep -q gpt; then
         docker-compose -f ${PROJECT_ROOT}/docker-compose.yml logs -f
-    else
+    elif command -v pm2 >/dev/null 2>&1; then
         pm2 logs
+    else
+        echo -e "${YELLOW}Note:${NC} Neither Docker nor PM2 found; cannot show logs."
     fi
 }
 
@@ -667,10 +693,6 @@ server {
     root /opt/gpt/app/public;
     index index.html;
     location /.well-known/ { allow all; }
-    # Privacy Policy routes (space-friendly)
-    location = /privacy%20policy { try_files /privacy-policy.html =404; }
-    location = /privacy-policy { try_files /privacy-policy.html =404; }
-    location = /privacy { try_files /privacy-policy.html =404; }
     # Privacy Policy routes (space-friendly)
     location = /privacy%20policy { try_files /privacy-policy.html =404; }
     location = /privacy-policy { try_files /privacy-policy.html =404; }
@@ -1053,13 +1075,19 @@ uninstall_all() {
     
     pm2 delete all 2>/dev/null || true
     pm2 save --force 2>/dev/null || true
-    
+
     docker-compose -f ${PROJECT_ROOT}/docker-compose.yml down 2>/dev/null || true
-    
-    rm -rf ${PROJECT_ROOT}
+
+    # Guard agar tidak menghapus root/system
+    if [ "${PROJECT_ROOT}" = "/opt/gpt" ] && [ -d "/opt/gpt" ]; then
+        rm -rf /opt/gpt
+    else
+        echo -e "${RED}Gagal uninstall: PROJECT_ROOT tidak valid!${NC}"
+        return 1
+    fi
     rm -f ${NGINX_CONF}
     rm -f /etc/nginx/sites-enabled/gpt-actions
-    
+
     systemctl restart nginx
 
     echo -e "${GREEN}✓ Uninstalled!${NC}"
@@ -1088,8 +1116,10 @@ test_create_file_logic() {
 
     echo -n "Masukkan nama file (contoh: test-gpt.txt): "
     read -r FILE_NAME
+    # Sanitize file name (no spaces, no special chars except .-_)
+    FILE_NAME=$(echo "$FILE_NAME" | sed 's/[^a-zA-Z0-9._-]//g')
     [[ -z "$FILE_NAME" ]] && {
-        echo -e "${RED}✗ Nama file tidak boleh kosong!${NC}"
+        echo -e "${RED}✗ Nama file tidak boleh kosong atau mengandung karakter ilegal!${NC}"
         return 1
     }
 
@@ -1101,15 +1131,12 @@ test_create_file_logic() {
     echo -e "${YELLOW}Mengupload file → s3://$S3_BUCKET/$FILE_NAME${NC}"
 
     # <<< VERSI FINAL YANG BENAR 100% >>>
-    node <<'NODEJS' "$FILE_NAME"
+    node -r dotenv/config <<'NODEJS' "$FILE_NAME"
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-require('dotenv').config();
-
 const fileName = process.argv[1];
 const bucket   = process.env.S3_BUCKET;
 const endpoint = process.env.S3_ENDPOINT || null;
 const region   = process.env.S3_REGION || 'auto';
-
 const config = { region };
 if (endpoint) config.endpoint = endpoint;
 if (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
@@ -1118,23 +1145,19 @@ if (process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY) {
         secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
     };
 }
-
 const client = new S3Client(config);
-
 const params = {
     Bucket: bucket,
     Key: fileName,
     Body: `Hello dari GPT! File test upload ke S3.\nWaktu: ${new Date().toISOString()}\n`,
     ContentType: 'text/plain'
 };
-
 (async () => {
     try {
         await client.send(new PutObjectCommand(params));
         console.log('\n\x1b[32m✓ BERHASIL! File terupload ke S3\x1b[0m');
         console.log('   Bucket : \x1b[1m' + bucket + '\x1b[0m');
         console.log('   Key    : \x1b[1m' + fileName + '\x1b[0m');
-
         let url = 'https://' + bucket;
         if (endpoint && endpoint.includes('cloudflare')) {
             url += '.r2.cloudflarestorage.com';
@@ -1164,6 +1187,31 @@ NODEJS
 }
 
 # Main loop
+ganti_custom_ssl() {
+    echo -e "${YELLOW}[GANTI CUSTOM SSL]${NC}"
+    mkdir -p ${PROJECT_ROOT}/ssl
+    echo "Paste new fullchain.pem (end with Ctrl+D):"
+    cat > ${PROJECT_ROOT}/ssl/fullchain.pem
+    echo "Paste new privkey.pem (end with Ctrl+D):"
+    cat > ${PROJECT_ROOT}/ssl/privkey.pem
+    nginx -t && systemctl restart nginx
+    echo -e "${GREEN}✓ Custom SSL replaced and Nginx restarted!${NC}"
+}
+
+check_required_commands() {
+    local missing=()
+    for cmd in nginx pm2 docker docker-compose certbot jq node npm; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing+=("$cmd")
+        fi
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo -e "${YELLOW}Warning:${NC} Required commands missing: ${missing[*]}"
+    fi
+}
+
+check_required_commands
+
 while true; do
     show_menu
     read -r choice
@@ -1178,7 +1226,7 @@ while true; do
         8) manual_bearer_token ;;
         9) setup_letsencrypt ;;
         10) setup_custom_ssl ;;
-        11) setup_custom_ssl ;;
+        11) ganti_custom_ssl ;;
         12) setup_letsencrypt ;;
         13) overwrite_ssl ;;
         14) overwrite_ssl_letsencrypt ;;
