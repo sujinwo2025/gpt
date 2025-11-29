@@ -378,18 +378,25 @@ EOF
 HTML
     fi
     cat > ${NGINX_CONF} <<'NGINXCONF'
-banner() {
-    # Small, colorful banner
-    echo -e "${RED}G${YELLOW}P${GREEN}T${CYAN} ${MAGENTA}C${BLUE}R${YELLOW}U${GREEN}D${NC}"
-    echo -e "${CYAN}Custom Actions • Bearer • Domain • Supabase • S3${NC}"
-    echo -e "${BLUE}/opt/gpt • files.bytrix.my.id${NC}"
-    echo ""
-}
-    echo -e "${CYAN}════════════════════════════════════════════════════════════════════════${NC}"
-    echo ""
+server {
+    listen 80;
+    server_name files.bytrix.my.id;
+    root /opt/gpt/app/public;
+    index index.html;
+    location /.well-known/ { allow all; }
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    location /api/ {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
     }
     location /actions.json {
         proxy_pass http://localhost:3000/actions.json;
@@ -717,10 +724,6 @@ server {
     root /opt/gpt/app/public;
     index index.html;
     location /.well-known/ { allow all; }
-    # Privacy Policy routes (space-friendly)
-    location = /privacy%20policy { try_files /privacy-policy.html =404; }
-    location = /privacy-policy { try_files /privacy-policy.html =404; }
-    location = /privacy { try_files /privacy-policy.html =404; }
     # Privacy Policy routes (space-friendly)
     location = /privacy%20policy { try_files /privacy-policy.html =404; }
     location = /privacy-policy { try_files /privacy-policy.html =404; }
