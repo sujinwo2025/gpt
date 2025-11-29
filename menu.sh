@@ -1,43 +1,5 @@
 #!/bin/bash
-# Fungsi: Switch Proxy antara Nginx dan Caddy
-switch_proxy() {
-    echo -e "${CYAN}[SWITCH PROXY]${NC}"
-    STATUS_NGINX="$(systemctl is-active nginx 2>/dev/null)"
-    STATUS_CADDY="$(systemctl is-active caddy 2>/dev/null)"
-    echo "Status saat ini:"
-    echo " - Nginx : $STATUS_NGINX"
-    echo " - Caddy : $STATUS_CADDY"
-    echo "Pilih proxy yang ingin diaktifkan:"
-    echo "1) Nginx"
-    echo "2) Caddy"
-    read -p "Pilihan [1/2]: " PILIH_PROXY
-    if [ "$PILIH_PROXY" = "1" ]; then
-        echo "Menonaktifkan Caddy (stop), mengaktifkan Nginx..."
-        systemctl stop caddy 2>/dev/null || true
-        systemctl start nginx 2>/dev/null || true
-        sleep 2
-        if systemctl is-active --quiet nginx; then
-            echo -e "${GREEN}✓ Nginx sudah aktif!${NC}"
-            echo "Caddy hanya di-stop, bisa diaktifkan lagi kapan saja."
-        else
-            echo -e "${RED}✗ Gagal mengaktifkan Nginx!${NC}"
-        fi
-    elif [ "$PILIH_PROXY" = "2" ]; then
-        echo "Menonaktifkan Nginx (stop), mengaktifkan Caddy..."
-        systemctl stop nginx 2>/dev/null || true
-        systemctl start caddy 2>/dev/null || true
-        sleep 2
-        if systemctl is-active --quiet caddy; then
-            echo -e "${GREEN}✓ Caddy sudah aktif!${NC}"
-            echo "Nginx hanya di-stop, bisa diaktifkan lagi kapan saja."
-        else
-            echo -e "${RED}✗ Gagal mengaktifkan Caddy!${NC}"
-        fi
-    else
-        echo "Pilihan tidak valid."
-    fi
-    read -p "Tekan Enter untuk kembali ke menu..."
-}
+
 # ========================================
 # GPT Custom Actions Server - FINAL VERSION
 # Bearer Token + Domain Verification + S3 + Supabase
@@ -220,77 +182,63 @@ banner() {
 }
 
 show_menu() {
-        echo "[DEBUG] Masuk show_menu"
-        banner
-        # Status indikator
-        STATUS_NGINX="$(systemctl is-active nginx 2>/dev/null)"
-        STATUS_CADDY="$(systemctl is-active caddy 2>/dev/null)"
-        STATUS_HOST="$(hostname -I | awk '{print $1}')"
-        ICON_NGINX="${RED}🔴${NC}"; [ "$STATUS_NGINX" = "active" ] && ICON_NGINX="${GREEN}🟢${NC}"
-        ICON_CADDY="${RED}🔴${NC}"; [ "$STATUS_CADDY" = "active" ] && ICON_CADDY="${GREEN}🟢${NC}"
-        ICON_HOST="${GREEN}🟢${NC}"
-        echo -e "Status: Nginx $ICON_NGINX  |  Caddy $ICON_CADDY  |  Host $ICON_HOST ($STATUS_HOST)"
-        echo "-------------------------------------------------------------"
-        echo -e "${CYAN}[ INSTALL & UPDATE ]${NC}"
-        echo " 1)  Install pertama kali (Native — PM2 + Nginx)"
-        echo " 2)  Install pertama kali (Docker-Compose mode)"
-        echo " 3)  Update dari GitHub + rebuild + restart"
-        echo " 4)  Restart semua service"
-        echo " 5)  Lihat log real-time"
-        echo ""
-        echo -e "${YELLOW}[ SECURITY & VERIFICATION ]${NC}"
-        echo " 6)  Generate ulang Bearer Token (64 char) → otomatis update OpenAPI"
-        echo " 7)  Cek status domain verification OpenAI"
-        echo " 8)  Ganti Bearer Token manual (paste sendiri)"
-        echo ""
-        echo -e "${GREEN}[ SSL MANAGEMENT ]${NC}"
-        echo " 9)  Aktifkan SSL Let's Encrypt"
-        echo "10) Aktifkan Custom SSL → Paste fullchain.pem + privkey.pem"
-        echo "11) Ganti Custom SSL"
-        echo "12) Kembali ke Let's Encrypt"
-        echo "13) Overwrite SSL (fullchain.pem & privkey.pem)"
-        echo "14) Overwrite SSL pakai Let's Encrypt (certbot)"
-        echo ""
-        echo -e "${BLUE}[ S3 STORAGE ]${NC}"
-        echo "15) Change S3 Endpoint"
-        echo "16) Change S3 Access Key ID"
-        echo "17) Change S3 Secret Access Key"
-        echo "18) Change S3 Region"
-        echo "19) Change Default Bucket"
-        echo "20) Test koneksi S3"
-        echo "21) Test S3 List Objects (v3)"
-        echo "22) Test Buat File ke S3 (input nama file)"
-        echo ""
-        echo -e "${MAGENTA}[ SUPABASE STORAGE ]${NC}"
-        echo "23) Ganti Supabase Service Role Key"
-        echo "24) Ganti Supabase URL"
-        echo "25) Test koneksi Supabase"
-        echo "26) Ganti Supabase Bucket Name"
-        echo "27) Test Supabase Storage (list objects)"
-        echo ""
-        echo -e "${CYAN}[ OPENAPI GENERATOR ]${NC}"
-        echo "28) Generate → Hanya Supabase CRUD"
-        echo "29) Generate → Hanya S3 File Operations"
-        echo "30) Generate → Full Combo (default)"
-        echo ""
-        echo -e "${YELLOW}[ DOCKER CONTROL ]${NC}"
-        echo "31) Start Docker-Compose"
-        echo "32) Stop Docker-Compose"
-        echo "33) Rebuild Docker tanpa cache"
-        echo ""
-        echo -e "${RED}[ MAINTENANCE & TESTING ]${NC}"
-        echo "34) Test semua endpoint (dengan Bearer Token)"
-        echo "35) Backup semua (termasuk Bearer Token)"
-        echo "36) Uninstall total bersih"
-        echo ""
-        echo -e "${CYAN}[ PROXY SWITCH ]${NC}"
-        echo "37) Switch Proxy: Nginx <-> Caddy"
-        echo ""
-        echo -e "${NC}[ LAINNYA ]${NC}"
-        echo " 0)  Keluar"
-        echo ""
-        echo -n "Pilih menu: "
-        echo "[DEBUG] Keluar show_menu"
+    banner
+    echo -e "${CYAN}[ INSTALL & UPDATE ]${NC}"
+    echo " 1)  Install pertama kali (Native — PM2 + Nginx)"
+    echo " 2)  Install pertama kali (Docker-Compose mode)"
+    echo " 3)  Update dari GitHub + rebuild + restart"
+    echo " 4)  Restart semua service"
+    echo " 5)  Lihat log real-time"
+    echo ""
+    echo -e "${YELLOW}[ SECURITY & VERIFICATION ]${NC}"
+    echo " 6)  Generate ulang Bearer Token (64 char) → otomatis update OpenAPI"
+    echo " 7)  Cek status domain verification OpenAI"
+    echo " 8)  Ganti Bearer Token manual (paste sendiri)"
+    echo ""
+    echo -e "${GREEN}[ SSL MANAGEMENT ]${NC}"
+    echo " 9)  Aktifkan SSL Let's Encrypt"
+    echo "10) Aktifkan Custom SSL → Paste fullchain.pem + privkey.pem"
+    echo "11) Ganti Custom SSL"
+    echo "12) Kembali ke Let's Encrypt"
+    echo "13) Overwrite SSL (fullchain.pem & privkey.pem)"
+    echo "14) Overwrite SSL pakai Let's Encrypt (certbot)"
+    echo ""
+    echo -e "${BLUE}[ S3 STORAGE ]${NC}"
+    echo "15) Change S3 Endpoint"
+    echo "16) Change S3 Access Key ID"
+    echo "17) Change S3 Secret Access Key"
+    echo "18) Change S3 Region"
+    echo "19) Change Default Bucket"
+    echo "20) Test koneksi S3"
+    echo "21) Test S3 List Objects (v3)"
+    echo "22) Test Buat File ke S3 (input nama file)"
+    echo ""
+    echo -e "${MAGENTA}[ SUPABASE STORAGE ]${NC}"
+    echo "23) Ganti Supabase Service Role Key"
+    echo "24) Ganti Supabase URL"
+    echo "25) Test koneksi Supabase"
+    echo "26) Ganti Supabase Bucket Name"
+    echo "27) Test Supabase Storage (list objects)"
+    echo ""
+    echo -e "${CYAN}[ OPENAPI GENERATOR ]${NC}"
+    echo "28) Generate → Hanya Supabase CRUD"
+    echo "29) Generate → Hanya S3 File Operations"
+    echo "30) Generate → Full Combo (default)"
+    echo ""
+    echo -e "${YELLOW}[ DOCKER CONTROL ]${NC}"
+    echo "31) Start Docker-Compose"
+    echo "32) Stop Docker-Compose"
+    echo "33) Rebuild Docker tanpa cache"
+    echo ""
+    echo -e "${RED}[ MAINTENANCE & TESTING ]${NC}"
+    echo "34) Test semua endpoint (dengan Bearer Token)"
+    echo "35) Backup semua (termasuk Bearer Token)"
+    echo "36) Uninstall total bersih"
+    echo ""
+    echo -e "${NC}[ LAINNYA ]${NC}"
+    echo " 0)  Keluar"
+    echo ""
+    echo -n "Pilih menu: "
 }
 
 generate_bearer_token() {
@@ -380,25 +328,18 @@ EOF
 HTML
     fi
     cat > ${NGINX_CONF} <<'NGINXCONF'
-server {
-    listen 80;
-    server_name files.bytrix.my.id;
-    root /opt/gpt/app/public;
-    index index.html;
-    location /.well-known/ { allow all; }
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-    location /api/ {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
+banner() {
+    # Small, colorful banner
+    echo -e "${RED}G${YELLOW}P${GREEN}T${CYAN} ${MAGENTA}C${BLUE}R${YELLOW}U${GREEN}D${NC}"
+    echo -e "${CYAN}Custom Actions • Bearer • Domain • Supabase • S3${NC}"
+    echo -e "${BLUE}/opt/gpt • files.bytrix.my.id${NC}"
+    echo ""
+}
+    echo -e "${CYAN}════════════════════════════════════════════════════════════════════════${NC}"
+    echo ""
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
     }
     location /actions.json {
         proxy_pass http://localhost:3000/actions.json;
@@ -515,9 +456,9 @@ update_from_github() {
             git remote add origin https://github.com/sujinwo2025/gpt.git 2>/dev/null || true
             git fetch --depth=1 origin main || git fetch --depth=1 origin master || true
             if git rev-parse --verify origin/main >/dev/null 2>&1; then
-                git reset --hard origin/main
+                git reset --mixed origin/main
             elif git rev-parse --verify origin/master >/dev/null 2>&1; then
-                git reset --hard origin/master
+                git reset --mixed origin/master
             else
                 echo -e "${RED}Remote branches not accessible. Performing safety add/commit initial state.${NC}"
                 git add .
@@ -568,9 +509,9 @@ update_from_github() {
     echo -e "${GREEN}✓ Update complete (git pull/reset + npm install + restart, .env preserved)!${NC}"
     # Auto-restart menu.sh after update for seamless UX
     if [ -f "${PROJECT_ROOT}/menu.sh" ]; then
-        bash "${PROJECT_ROOT}/menu.sh"
+        exec "${PROJECT_ROOT}/menu.sh"
     elif [ -f "$0" ]; then
-        bash "$0"
+        exec "$0"
     else
         echo -e "${RED}Gagal auto-restart menu.sh: file tidak ditemukan!${NC}"
     fi
@@ -726,6 +667,10 @@ server {
     root /opt/gpt/app/public;
     index index.html;
     location /.well-known/ { allow all; }
+    # Privacy Policy routes (space-friendly)
+    location = /privacy%20policy { try_files /privacy-policy.html =404; }
+    location = /privacy-policy { try_files /privacy-policy.html =404; }
+    location = /privacy { try_files /privacy-policy.html =404; }
     # Privacy Policy routes (space-friendly)
     location = /privacy%20policy { try_files /privacy-policy.html =404; }
     location = /privacy-policy { try_files /privacy-policy.html =404; }
@@ -1220,14 +1165,13 @@ NODEJS
 
 # Main loop
 while true; do
-    echo "[DEBUG] Mulai loop utama"
     show_menu
     read -r choice
-    echo "[DEBUG] Pilihan user: $choice"
+    
     case $choice in
         1) install_native ;;
         2) install_docker ;;
-        3) update_from_github ;;
+        3) update_from_github ; SKIP_PAUSE=1 ;;
         4) restart_services ;;
         5) show_logs ;;
         6) regenerate_bearer_token ;;
@@ -1261,7 +1205,6 @@ while true; do
         34) test_all_endpoints ;;
         35) backup_all ;;
         36) uninstall_all ;;
-        37) switch_proxy ;;
         0) exit 0 ;;
-    esac
-done
+        esac
+    done
