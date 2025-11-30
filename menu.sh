@@ -370,15 +370,22 @@ install_native() {
     }
     EOF
 
-        # Install npm packages (auto install dotenv if missing)
-        cd ${APP_DIR}
+        # Install npm packages (all dependencies)
+        cd "${APP_DIR}"
         if [ ! -f package.json ]; then
-            echo -e "${RED}package.json tidak ditemukan!${NC}"
+            echo -e "${RED}package.json tidak ditemukan di ${APP_DIR}!${NC}"
         else
-            npm install || true
+            echo -e "${CYAN}Menjalankan npm install untuk semua dependensi...${NC}"
+            npm install || { echo -e "${RED}npm install gagal!${NC}"; exit 1; }
+            # Pastikan dotenv terinstall
             if ! npm ls dotenv >/dev/null 2>&1; then
                 echo -e "${YELLOW}Menginstall dotenv...${NC}"
-                npm install dotenv
+                npm install dotenv || { echo -e "${RED}Gagal install dotenv!${NC}"; exit 1; }
+            fi
+            # Pastikan AWS SDK v3 terinstall
+            if ! npm ls @aws-sdk/client-s3 >/dev/null 2>&1; then
+                echo -e "${YELLOW}Menginstall @aws-sdk/client-s3...${NC}"
+                npm install @aws-sdk/client-s3 || { echo -e "${RED}Gagal install @aws-sdk/client-s3!${NC}"; exit 1; }
             fi
         fi
 
