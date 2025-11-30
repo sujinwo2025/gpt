@@ -7,7 +7,7 @@
 
 set -e
 
-PROJECT_ROOT="/opt/gpt"
+PROJECT_ROOT="$HOME/gpt"
 APP_DIR="${PROJECT_ROOT}/app"
 ENV_FILE="${APP_DIR}/.env"
 NGINX_CONF="/etc/nginx/sites-available/gpt-actions"
@@ -279,8 +279,65 @@ install_native() {
         # Generate Bearer Token
         BEARER_TOKEN=$(generate_bearer_token)
 
-        # Create .env
-        cat > ${ENV_FILE} <<EOF
+    # Server
+    PORT=3000
+    NODE_ENV=production
+
+    # Bearer Token Authentication
+    SERVER_BEARER_TOKEN=${BEARER_TOKEN}
+
+    # Supabase
+    SUPABASE_URL=https://your-project.supabase.co
+    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+    SUPABASE_BUCKET=public
+
+    # S3 Compatible Storage
+    S3_ENDPOINT=https://s3.amazonaws.com
+    S3_ACCESS_KEY_ID=your-access-key
+    S3_SECRET_ACCESS_KEY=your-secret-key
+    S3_REGION=us-east-1
+    S3_BUCKET=your-bucket
+
+    # Domain
+    DOMAIN=${DOMAIN}
+    EOF
+
+        # Validate .env creation
+        if [ ! -d "${APP_DIR}" ]; then
+            echo -e "${YELLOW}APP_DIR belum ada, membuat: ${APP_DIR}${NC}"
+            mkdir -p "${APP_DIR}" || { echo -e "${RED}Gagal membuat folder ${APP_DIR}!${NC}"; exit 1; }
+        fi
+        touch "${ENV_FILE}" 2>/dev/null
+        cat > "${ENV_FILE}" <<EOF
+    # Server
+    PORT=3000
+    NODE_ENV=production
+
+    # Bearer Token Authentication
+    SERVER_BEARER_TOKEN=${BEARER_TOKEN}
+
+    # Supabase
+    SUPABASE_URL=https://your-project.supabase.co
+    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+    SUPABASE_BUCKET=public
+
+    # S3 Compatible Storage
+    S3_ENDPOINT=https://s3.amazonaws.com
+    S3_ACCESS_KEY_ID=your-access-key
+    S3_SECRET_ACCESS_KEY=your-secret-key
+    S3_REGION=us-east-1
+    S3_BUCKET=your-bucket
+
+    # Domain
+    DOMAIN=${DOMAIN}
+    EOF
+        if [ ! -f "${ENV_FILE}" ]; then
+            echo -e "${RED}Gagal membuat file .env di ${ENV_FILE}!${NC}"
+            echo -e "Cek permission folder dan pastikan script dijalankan sebagai root/admin."
+            echo -e "APP_DIR: ${APP_DIR}"
+            echo -e "PROJECT_ROOT: ${PROJECT_ROOT}"
+            exit 1
+        fi
     # Server
     PORT=3000
     NODE_ENV=production
