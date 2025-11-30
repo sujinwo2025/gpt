@@ -414,7 +414,7 @@ install_native() {
         <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Custom Actions Server</title><style>body{font-family:Arial;background:#0e1117;color:#f0f3f7;padding:40px;line-height:1.5}code{background:#1b2330;padding:4px 6px;border-radius:4px}a{color:#4ea1ff;text-decoration:none}a:hover{text-decoration:underline}footer{margin-top:40px;font-size:12px;opacity:.6}</style></head><body><h1>Custom Actions Server</h1><p>Domain verification file: <code>/.well-known/openai.json</code></p><p>OpenAPI spec: <a href="/actions.json">/actions.json</a></p><p>API base: <code>/api/...</code> (Bearer token required)</p><footer>Generated automatically at install time.</footer></body></html>
         EOF
         fi
-        cat > ${NGINX_CONF} <<'NGINXCONF'
+        cat > ${NGINX_CONF} <<EOF
     server {
         listen 80;
         server_name files.bytrix.my.id;
@@ -445,7 +445,7 @@ install_native() {
             proxy_pass http://localhost:3000/actions.json;
         }
     }
-    NGINXCONF
+    EOF
 
         ln -sf ${NGINX_CONF} /etc/nginx/sites-enabled/
         rm -f /etc/nginx/sites-enabled/default
@@ -793,40 +793,40 @@ setup_custom_ssl() {
     if [ ! -f "/opt/gpt/app/public/index.html" ]; then
         echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Custom Actions Server</title></head><body><h1>Custom Actions Server</h1></body></html>' > /opt/gpt/app/public/index.html
     fi
-    cat > ${NGINX_CONF} <<'NGINXCONF'
-    server {
-        listen 80;
-        server_name files.bytrix.my.id;
-        return 301 https://$server_name$request_uri;
+    cat > ${NGINX_CONF} <<EOF
+server {
+    listen 80;
+    server_name files.bytrix.my.id;
+    return 301 https://$server_name$request_uri;
+}
+server {
+    listen 443 ssl http2;
+    server_name files.bytrix.my.id;
+    ssl_certificate /opt/gpt/ssl/fullchain.pem;
+    ssl_certificate_key /opt/gpt/ssl/privkey.pem;
+    root /opt/gpt/app/public;
+    index index.html;
+    location /.well-known/ { allow all; }
+    # Privacy Policy routes (space-friendly)
+    location = /privacy%20policy { try_files /privacy-policy.html =404; }
+    location = /privacy-policy { try_files /privacy-policy.html =404; }
+    location = /privacy { try_files /privacy-policy.html =404; }
+    location / {
+        try_files $uri $uri/ /index.html;
     }
-    server {
-        listen 443 ssl http2;
-        server_name files.bytrix.my.id;
-        ssl_certificate /opt/gpt/ssl/fullchain.pem;
-        ssl_certificate_key /opt/gpt/ssl/privkey.pem;
-        root /opt/gpt/app/public;
-        index index.html;
-        location /.well-known/ { allow all; }
-        # Privacy Policy routes (space-friendly)
-        location = /privacy%20policy { try_files /privacy-policy.html =404; }
-        location = /privacy-policy { try_files /privacy-policy.html =404; }
-        location = /privacy { try_files /privacy-policy.html =404; }
-        location / {
-            try_files $uri $uri/ /index.html;
-        }
-        location /api/ {
-            proxy_pass http://localhost:3000;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection 'upgrade';
-            proxy_set_header Host $host;
-            proxy_cache_bypass $http_upgrade;
-        }
-        location /actions.json {
-            proxy_pass http://localhost:3000/actions.json;
-        }
+    location /api/ {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
     }
-    EOF
+    location /actions.json {
+        proxy_pass http://localhost:3000/actions.json;
+    }
+}
+EOF
 
     nginx -t && systemctl restart nginx
     echo -e "${GREEN}✓ Custom SSL activated!${NC}"
