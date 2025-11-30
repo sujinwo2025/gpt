@@ -420,8 +420,35 @@ install_docker() {
     # Generate Bearer Token
     BEARER_TOKEN=$(generate_bearer_token)
 
-    # Create .env
-    cat > ${ENV_FILE} <<EOF
+# Server
+PORT=3000
+NODE_ENV=production
+
+# Bearer Token Authentication
+SERVER_BEARER_TOKEN=${BEARER_TOKEN}
+
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_BUCKET=public
+
+# S3 Compatible Storage
+S3_ENDPOINT=https://s3.amazonaws.com
+S3_ACCESS_KEY_ID=your-access-key
+S3_SECRET_ACCESS_KEY=your-secret-key
+S3_REGION=us-east-1
+S3_BUCKET=your-bucket
+
+# Domain
+DOMAIN=${DOMAIN}
+EOF
+
+    # Validate .env creation
+    if [ ! -f "${ENV_FILE}" ]; then
+        echo -e "${RED}Gagal membuat file .env di ${ENV_FILE}!${NC}"
+        echo -e "Cek permission folder dan pastikan script dijalankan sebagai root/admin."
+        exit 1
+    fi
 PORT=3000
 NODE_ENV=production
 SERVER_BEARER_TOKEN=${BEARER_TOKEN}
