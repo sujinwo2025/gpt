@@ -1322,11 +1322,34 @@ check_required_commands() {
     if [ ${#missing[@]} -gt 0 ]; then
         echo -e "${YELLOW}Warning:${NC} Required commands missing: ${missing[*]}"
     fi
+    export MISSING_COMMANDS="${missing[*]}"
+    # Auto-install missing commands if possible
+    if [ -n "$MISSING_COMMANDS" ]; then
+        echo -e "${YELLOW}Auto-installing missing commands: $MISSING_COMMANDS${NC}"
+        apt update
+        for pkg in $MISSING_COMMANDS; do
+            case $pkg in
+                nginx|pm2|certbot|jq|node|npm)
+                    apt install -y $pkg || true
+                    ;;
+                docker)
+                    apt install -y docker.io || true
+                    ;;
+                docker-compose)
+                    apt install -y docker-compose || true
+                    ;;
+            esac
+        done
+    fi
 }
 
 check_required_commands
 
 while true; do
+    if ! declare -f show_menu >/dev/null; then
+        echo -e "${RED}FATAL: show_menu function not found. Script cannot continue.${NC}"
+        exit 1
+    fi
     show_menu
     read -r choice
     case $choice in
