@@ -123,27 +123,27 @@ install_caddy_otomatis() {
     CADDYFILE="/etc/caddy/Caddyfile"
     DOMAIN_CADDY="${DOMAIN}"
     cat > "$CADDYFILE" <<EOF
-${DOMAIN_CADDY} {
-    root * /opt/gpt/app/public
-    encode gzip
-    file_server
-    @wellknown path /.well-known/*
-    handle @wellknown {
-        file_server
-    }
-    @api path /api/*
-    reverse_proxy @api localhost:3000
-    @actions path /actions.json
-    reverse_proxy @actions localhost:3000
-EOF
-    # Tambahkan SSL jika ada
-    if [ -f "$SSL_PATH/fullchain.pem" ] && [ -f "$SSL_PATH/privkey.pem" ]; then
-        echo "    tls $SSL_PATH/fullchain.pem $SSL_PATH/privkey.pem" >> "$CADDYFILE"
-    else
-        echo "    tls internal" >> "$CADDYFILE"
-    fi
-    echo "}" >> "$CADDYFILE"
-
+        # Server
+        PORT=3000
+        NODE_ENV=production
+    
+        # Bearer Token Authentication
+        SERVER_BEARER_TOKEN=${BEARER_TOKEN}
+    
+        # Supabase
+        SUPABASE_URL=https://your-project.supabase.co
+        SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+        SUPABASE_BUCKET=public
+    
+        # S3 Compatible Storage
+        S3_ENDPOINT=https://s3.amazonaws.com
+        S3_ACCESS_KEY_ID=your-access-key
+        S3_SECRET_ACCESS_KEY=your-secret-key
+        S3_REGION=us-east-1
+        S3_BUCKET=your-bucket
+    
+        # Domain
+        DOMAIN=${DOMAIN}
     # Restart Caddy
     systemctl restart caddy
     sleep 2
@@ -279,27 +279,38 @@ install_native() {
         # Generate Bearer Token
         BEARER_TOKEN=$(generate_bearer_token)
 
-    # Server
-    PORT=3000
-    NODE_ENV=production
-
-    # Bearer Token Authentication
-    SERVER_BEARER_TOKEN=${BEARER_TOKEN}
-
-    # Supabase
-    SUPABASE_URL=https://your-project.supabase.co
-    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-    SUPABASE_BUCKET=public
-
-    # S3 Compatible Storage
-    S3_ENDPOINT=https://s3.amazonaws.com
-    S3_ACCESS_KEY_ID=your-access-key
-    S3_SECRET_ACCESS_KEY=your-secret-key
-    S3_REGION=us-east-1
-    S3_BUCKET=your-bucket
-
-    # Domain
-    DOMAIN=${DOMAIN}
+        # Create .env: if not exists, copy from .env.example
+        if [ ! -f "${ENV_FILE}" ]; then
+            if [ -f "${PROJECT_ROOT}/.env.example" ]; then
+                echo "[AUTO] Copying .env.example to .env"
+                cp "${PROJECT_ROOT}/.env.example" "${ENV_FILE}"
+            else
+                echo "[WARN] .env.example not found, creating .env from template."
+                cat > "${ENV_FILE}" <<EOF
+        # Server
+        PORT=3000
+        NODE_ENV=production
+    
+        # Bearer Token Authentication
+        SERVER_BEARER_TOKEN=${BEARER_TOKEN}
+    
+        # Supabase
+        SUPABASE_URL=https://your-project.supabase.co
+        SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+        SUPABASE_BUCKET=public
+    
+        # S3 Compatible Storage
+        S3_ENDPOINT=https://s3.amazonaws.com
+        S3_ACCESS_KEY_ID=your-access-key
+        S3_SECRET_ACCESS_KEY=your-secret-key
+        S3_REGION=us-east-1
+        S3_BUCKET=your-bucket
+    
+        # Domain
+        DOMAIN=${DOMAIN}
+    EOF
+            fi
+        fi
     EOF
 
         # Validate .env creation
@@ -364,9 +375,9 @@ install_native() {
         # Create domain verification file
         cat > ${WELL_KNOWN_FILE} <<EOF
     {
-      "openai": {
-        "domain_verification": "${DOMAIN}"
-      }
+        "openai": {
+            "domain_verification": "${DOMAIN}"
+        }
     }
     EOF
 
@@ -399,9 +410,9 @@ install_native() {
         # Setup Nginx
         # Ensure basic index.html to avoid 403 on root
         if [ ! -f "/opt/gpt/app/public/index.html" ]; then
-            cat > /opt/gpt/app/public/index.html <<'HTML'
-    <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Custom Actions Server</title><style>body{font-family:Arial;background:#0e1117;color:#f0f3f7;padding:40px;line-height:1.5}code{background:#1b2330;padding:4px 6px;border-radius:4px}a{color:#4ea1ff;text-decoration:none}a:hover{text-decoration:underline}footer{margin-top:40px;font-size:12px;opacity:.6}</style></head><body><h1>Custom Actions Server</h1><p>Domain verification file: <code>/.well-known/openai.json</code></p><p>OpenAPI spec: <a href="/actions.json">/actions.json</a></p><p>API base: <code>/api/...</code> (Bearer token required)</p><footer>Generated automatically at install time.</footer></body></html>
-    HTML
+            cat > /opt/gpt/app/public/index.html <<EOF
+        <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Custom Actions Server</title><style>body{font-family:Arial;background:#0e1117;color:#f0f3f7;padding:40px;line-height:1.5}code{background:#1b2330;padding:4px 6px;border-radius:4px}a{color:#4ea1ff;text-decoration:none}a:hover{text-decoration:underline}footer{margin-top:40px;font-size:12px;opacity:.6}</style></head><body><h1>Custom Actions Server</h1><p>Domain verification file: <code>/.well-known/openai.json</code></p><p>OpenAPI spec: <a href="/actions.json">/actions.json</a></p><p>API base: <code>/api/...</code> (Bearer token required)</p><footer>Generated automatically at install time.</footer></body></html>
+        EOF
         fi
         cat > ${NGINX_CONF} <<'NGINXCONF'
     server {
@@ -783,39 +794,39 @@ setup_custom_ssl() {
         echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Custom Actions Server</title></head><body><h1>Custom Actions Server</h1></body></html>' > /opt/gpt/app/public/index.html
     fi
     cat > ${NGINX_CONF} <<'NGINXCONF'
-server {
-    listen 80;
-    server_name files.bytrix.my.id;
-    return 301 https://$server_name$request_uri;
-}
-server {
-    listen 443 ssl http2;
-    server_name files.bytrix.my.id;
-    ssl_certificate /opt/gpt/ssl/fullchain.pem;
-    ssl_certificate_key /opt/gpt/ssl/privkey.pem;
-    root /opt/gpt/app/public;
-    index index.html;
-    location /.well-known/ { allow all; }
-    # Privacy Policy routes (space-friendly)
-    location = /privacy%20policy { try_files /privacy-policy.html =404; }
-    location = /privacy-policy { try_files /privacy-policy.html =404; }
-    location = /privacy { try_files /privacy-policy.html =404; }
-    location / {
-        try_files $uri $uri/ /index.html;
+    server {
+        listen 80;
+        server_name files.bytrix.my.id;
+        return 301 https://$server_name$request_uri;
     }
-    location /api/ {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
+    server {
+        listen 443 ssl http2;
+        server_name files.bytrix.my.id;
+        ssl_certificate /opt/gpt/ssl/fullchain.pem;
+        ssl_certificate_key /opt/gpt/ssl/privkey.pem;
+        root /opt/gpt/app/public;
+        index index.html;
+        location /.well-known/ { allow all; }
+        # Privacy Policy routes (space-friendly)
+        location = /privacy%20policy { try_files /privacy-policy.html =404; }
+        location = /privacy-policy { try_files /privacy-policy.html =404; }
+        location = /privacy { try_files /privacy-policy.html =404; }
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+        location /api/ {
+            proxy_pass http://localhost:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+        }
+        location /actions.json {
+            proxy_pass http://localhost:3000/actions.json;
+        }
     }
-    location /actions.json {
-        proxy_pass http://localhost:3000/actions.json;
-    }
-}
-NGINXCONF
+    EOF
 
     nginx -t && systemctl restart nginx
     echo -e "${GREEN}✓ Custom SSL activated!${NC}"
