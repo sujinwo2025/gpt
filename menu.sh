@@ -281,109 +281,121 @@ install_native() {
 
         # Create .env
         cat > ${ENV_FILE} <<EOF
-# Server
-PORT=3000
-NODE_ENV=production
+    # Server
+    PORT=3000
+    NODE_ENV=production
 
-# Bearer Token Authentication
-SERVER_BEARER_TOKEN=${BEARER_TOKEN}
+    # Bearer Token Authentication
+    SERVER_BEARER_TOKEN=${BEARER_TOKEN}
 
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_BUCKET=public
+    # Supabase
+    SUPABASE_URL=https://your-project.supabase.co
+    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+    SUPABASE_BUCKET=public
 
-# S3 Compatible Storage
-S3_ENDPOINT=https://s3.amazonaws.com
-S3_ACCESS_KEY_ID=your-access-key
-S3_SECRET_ACCESS_KEY=your-secret-key
-S3_REGION=us-east-1
-S3_BUCKET=your-bucket
+    # S3 Compatible Storage
+    S3_ENDPOINT=https://s3.amazonaws.com
+    S3_ACCESS_KEY_ID=your-access-key
+    S3_SECRET_ACCESS_KEY=your-secret-key
+    S3_REGION=us-east-1
+    S3_BUCKET=your-bucket
 
-# Domain
-DOMAIN=${DOMAIN}
-EOF
+    # Domain
+    DOMAIN=${DOMAIN}
+    EOF
 
-    # Create domain verification file
-    cat > ${WELL_KNOWN_FILE} <<EOF
-{
-  "openai": {
-    "domain_verification": "${DOMAIN}"
-  }
-}
-EOF
-
-    # Install npm packages
-    cd ${APP_DIR}
-    npm install
-    
-    # Generate OpenAPI
-    node generate-actions.js full
-    
-    # Setup Nginx
-    # Ensure basic index.html to avoid 403 on root
-    if [ ! -f "/opt/gpt/app/public/index.html" ]; then
-        cat > /opt/gpt/app/public/index.html <<'HTML'
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Custom Actions Server</title><style>body{font-family:Arial;background:#0e1117;color:#f0f3f7;padding:40px;line-height:1.5}code{background:#1b2330;padding:4px 6px;border-radius:4px}a{color:#4ea1ff;text-decoration:none}a:hover{text-decoration:underline}footer{margin-top:40px;font-size:12px;opacity:.6}</style></head><body><h1>Custom Actions Server</h1><p>Domain verification file: <code>/.well-known/openai.json</code></p><p>OpenAPI spec: <a href="/actions.json">/actions.json</a></p><p>API base: <code>/api/...</code> (Bearer token required)</p><footer>Generated automatically at install time.</footer></body></html>
-HTML
-    fi
-    cat > ${NGINX_CONF} <<'NGINXCONF'
-server {
-    listen 80;
-    server_name files.bytrix.my.id;
-    return 301 https://$server_name$request_uri;
-}
-server {
-    listen 443 ssl http2;
-    server_name files.bytrix.my.id;
-    ssl_certificate /opt/gpt/ssl/fullchain.pem;
-    ssl_certificate_key /opt/gpt/ssl/privkey.pem;
-    root /opt/gpt/app/public;
-    index index.html;
-    location /.well-known/ { allow all; }
-    location = /privacy-policy { try_files /privacy-policy.html =404; }
-    location = /privacy { try_files /privacy-policy.html =404; }
-    location / {
-        try_files $uri $uri/ /index.html;
+        # Create domain verification file
+        cat > ${WELL_KNOWN_FILE} <<EOF
+    {
+      "openai": {
+        "domain_verification": "${DOMAIN}"
+      }
     }
-    location /api/ {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-    location /actions.json {
-        proxy_pass http://localhost:3000/actions.json;
-    }
-}
-NGINXCONF
+    EOF
 
-    ln -sf ${NGINX_CONF} /etc/nginx/sites-enabled/
-    rm -f /etc/nginx/sites-enabled/default
-    nginx -t && systemctl restart nginx
-    
-    # Start with PM2
-    pm2 start ecosystem.config.js
-    pm2 save
-    # Safer PM2 startup (avoid piping shell prompt artifacts)
-    if command -v systemctl >/dev/null 2>&1; then
-        pm2 startup systemd -u $(whoami) --hp $(eval echo ~$USER) >/dev/null 2>&1 || true
-    else
-        # Fallback generic startup output parsing
-        START_CMD=$(pm2 startup | grep -E "pm2 .*startup" | tail -n 1)
-        if [ -n "$START_CMD" ]; then
-            eval "$START_CMD" || true
+        # Install npm packages (auto install dotenv if missing)
+        cd ${APP_DIR}
+        if [ ! -f package.json ]; then
+            echo -e "${RED}package.json tidak ditemukan!${NC}"
+        else
+            npm install || true
+            if ! npm ls dotenv >/dev/null 2>&1; then
+                echo -e "${YELLOW}Menginstall dotenv...${NC}"
+                npm install dotenv
+            fi
         fi
-    fi
-    
-    echo -e "${GREEN}✓ Installation complete!${NC}"
-    echo -e "${YELLOW}Bearer Token:${NC} ${BEARER_TOKEN}"
-    echo -e "${CYAN}Domain Verification:${NC} https://${DOMAIN}/.well-known/openai.json"
-    echo -e "${CYAN}OpenAPI Spec:${NC} https://${DOMAIN}/actions.json"
-    echo ""
-    echo -e "${RED}SAVE THIS BEARER TOKEN!${NC}"
+
+        # Generate OpenAPI
+        if command -v node >/dev/null 2>&1; then
+            node generate-actions.js full || echo -e "${RED}Gagal generate OpenAPI!${NC}"
+        else
+            echo -e "${RED}Node.js tidak ditemukan!${NC}"
+        fi
+
+        # Setup Nginx
+        # Ensure basic index.html to avoid 403 on root
+        if [ ! -f "/opt/gpt/app/public/index.html" ]; then
+            cat > /opt/gpt/app/public/index.html <<'HTML'
+    <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Custom Actions Server</title><style>body{font-family:Arial;background:#0e1117;color:#f0f3f7;padding:40px;line-height:1.5}code{background:#1b2330;padding:4px 6px;border-radius:4px}a{color:#4ea1ff;text-decoration:none}a:hover{text-decoration:underline}footer{margin-top:40px;font-size:12px;opacity:.6}</style></head><body><h1>Custom Actions Server</h1><p>Domain verification file: <code>/.well-known/openai.json</code></p><p>OpenAPI spec: <a href="/actions.json">/actions.json</a></p><p>API base: <code>/api/...</code> (Bearer token required)</p><footer>Generated automatically at install time.</footer></body></html>
+    HTML
+        fi
+        cat > ${NGINX_CONF} <<'NGINXCONF'
+    server {
+        listen 80;
+        server_name files.bytrix.my.id;
+        return 301 https://$server_name$request_uri;
+    }
+    server {
+        listen 443 ssl http2;
+        server_name files.bytrix.my.id;
+        ssl_certificate /opt/gpt/ssl/fullchain.pem;
+        ssl_certificate_key /opt/gpt/ssl/privkey.pem;
+        root /opt/gpt/app/public;
+        index index.html;
+        location /.well-known/ { allow all; }
+        location = /privacy-policy { try_files /privacy-policy.html =404; }
+        location = /privacy { try_files /privacy-policy.html =404; }
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+        location /api/ {
+            proxy_pass http://localhost:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+        }
+        location /actions.json {
+            proxy_pass http://localhost:3000/actions.json;
+        }
+    }
+    NGINXCONF
+
+        ln -sf ${NGINX_CONF} /etc/nginx/sites-enabled/
+        rm -f /etc/nginx/sites-enabled/default
+        nginx -t && systemctl restart nginx
+
+        # Start with PM2
+        pm2 start ecosystem.config.js
+        pm2 save
+        # Safer PM2 startup (avoid piping shell prompt artifacts)
+        if command -v systemctl >/dev/null 2>&1; then
+            pm2 startup systemd -u $(whoami) --hp $(eval echo ~$USER) >/dev/null 2>&1 || true
+        else
+            # Fallback generic startup output parsing
+            START_CMD=$(pm2 startup | grep -E "pm2 .*startup" | tail -n 1)
+            if [ -n "$START_CMD" ]; then
+                eval "$START_CMD" || true
+            fi
+        fi
+
+        echo -e "${GREEN}✓ Installation complete!${NC}"
+        echo -e "${YELLOW}Bearer Token:${NC} ${BEARER_TOKEN}"
+        echo -e "${CYAN}Domain Verification:${NC} https://${DOMAIN}/.well-known/openai.json"
+        echo -e "${CYAN}OpenAPI Spec:${NC} https://${DOMAIN}/actions.json"
+        echo ""
+        echo -e "${RED}SAVE THIS BEARER TOKEN!${NC}"
 }
 
 install_docker() {
